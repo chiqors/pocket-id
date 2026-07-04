@@ -243,6 +243,11 @@ func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClien
 	}
 
 	client.ForwardAuthExternalURL = forwardAuthExternalURL
+	forwardAuthUpstreamURL, err := normalizeForwardAuthUpstreamURL(input.ForwardAuthUpstreamURL)
+	if err != nil {
+		return &common.ValidationError{Message: err.Error()}
+	}
+	client.ForwardAuthUpstreamURL = forwardAuthUpstreamURL
 
 	// Credentials
 	client.Credentials.FederatedIdentities = make([]model.OidcClientFederatedIdentity, len(input.Credentials.FederatedIdentities))
@@ -260,27 +265,35 @@ func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClien
 }
 
 func normalizeForwardAuthExternalURL(raw *string) (*string, error) {
+	return normalizeAbsoluteHTTPURL(raw, "forward auth external URL")
+}
+
+func normalizeForwardAuthUpstreamURL(raw *string) (*string, error) {
+	return normalizeAbsoluteHTTPURL(raw, "forward auth upstream URL")
+}
+
+func normalizeAbsoluteHTTPURL(raw *string, fieldName string) (*string, error) {
 	if raw == nil || strings.TrimSpace(*raw) == "" {
 		return nil, nil
 	}
 
 	parsedURL, err := url.Parse(strings.TrimSpace(*raw))
 	if err != nil {
-		return nil, fmt.Errorf("forward auth external URL is invalid")
+		return nil, fmt.Errorf("%s is invalid", fieldName)
 	}
 
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return nil, fmt.Errorf("forward auth external URL must be absolute")
+		return nil, fmt.Errorf("%s must be absolute", fieldName)
 	}
 
 	switch strings.ToLower(parsedURL.Scheme) {
 	case "http", "https":
 	default:
-		return nil, fmt.Errorf("forward auth external URL must use http or https")
+		return nil, fmt.Errorf("%s must use http or https", fieldName)
 	}
 
 	if parsedURL.RawQuery != "" || parsedURL.Fragment != "" {
-		return nil, fmt.Errorf("forward auth external URL cannot include a query string or fragment")
+		return nil, fmt.Errorf("%s cannot include a query string or fragment", fieldName)
 	}
 
 	normalized := strings.TrimRight(parsedURL.String(), "/")

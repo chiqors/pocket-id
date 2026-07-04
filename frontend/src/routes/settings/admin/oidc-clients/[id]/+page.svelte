@@ -8,7 +8,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
-	import * as Tabs from '$lib/components/ui/tabs';
 	import UserGroupSelection from '$lib/components/user-group-selection.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import OidcService from '$lib/services/oidc-service';
@@ -55,7 +54,9 @@
 			: m.disabled(),
 		[m.forward_auth()]: client.forwardAuthEnabled ? m.enabled() : m.disabled(),
 		[m.forward_auth_external_url()]:
-			client.forwardAuthExternalURL || m.forward_auth_external_url_not_configured()
+			client.forwardAuthExternalURL || m.forward_auth_external_url_not_configured(),
+		['Forward auth upstream URL']:
+			client.forwardAuthUpstreamURL || 'Forward auth upstream URL not configured'
 	}));
 
 	const forwardAuthHeaderNames = [
@@ -68,75 +69,6 @@
 		'X-Pocket-Id-Is-Admin',
 		'X-Pocket-Id-Client-Id'
 	];
-
-	function forwardAuthCaddySnippet() {
-		const pocketIdBaseURL = page.url.origin;
-		const clientId = encodeURIComponent(client.id);
-		const copyHeaders = forwardAuthHeaderNames.join(' ');
-
-		return `@pocket_id path /.pocket-id/*
-
-handle @pocket_id {
-\treverse_proxy ${pocketIdBaseURL}
-}
-
-route {
-\tforward_auth ${pocketIdBaseURL} {
-\t\turi /.pocket-id/auth/${clientId}
-\t\tcopy_headers ${copyHeaders}
-\t}
-
-\treverse_proxy 127.0.0.1:3000 {
-\t\theader_up -X-Pocket-Id-User-Id
-\t\theader_up -X-Pocket-Id-Username
-\t\theader_up -X-Pocket-Id-Name
-\t\theader_up -X-Pocket-Id-Display-Name
-\t\theader_up -X-Pocket-Id-Email
-\t\theader_up -X-Pocket-Id-Groups
-\t\theader_up -X-Pocket-Id-Is-Admin
-\t\theader_up -X-Pocket-Id-Client-Id
-\t}
-}`;
-	}
-
-	function forwardAuthTraefikSnippet() {
-		const pocketIdBaseURL = page.url.origin;
-		const clientId = encodeURIComponent(client.id);
-		const headerLines = forwardAuthHeaderNames.map((header) => `          - ${header}`).join('\n');
-
-		return `http:
-  routers:
-    app:
-      rule: Host(\`app.example.com\`)
-      middlewares:
-        - pocket-id-${clientId}
-      service: app
-
-    app-pocket-id:
-      rule: Host(\`app.example.com\`) && PathPrefix(\`/.pocket-id/\`)
-      priority: 100
-      service: pocket-id
-
-  middlewares:
-    pocket-id-${clientId}:
-      forwardAuth:
-        address: ${pocketIdBaseURL}/.pocket-id/auth/${clientId}
-        trustForwardHeader: true
-        preserveLocationHeader: true
-        authResponseHeaders:
-${headerLines}
-
-  services:
-    pocket-id:
-      loadBalancer:
-        servers:
-          - url: ${pocketIdBaseURL}
-
-    app:
-      loadBalancer:
-        servers:
-          - url: http://127.0.0.1:3000`;
-	}
 
 	async function updateClient(updatedClient: OidcClientCreateWithLogo) {
 		let success = true;
@@ -373,27 +305,22 @@ ${headerLines}
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>{m.forward_auth_setup()}</Card.Title>
-			<Card.Description>{m.forward_auth_setup_description()}</Card.Description>
+			<Card.Description>
+				When an upstream URL is configured, Pocket ID can act as a proxy provider directly from the protected host without an extra sidecar proxy.
+			</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<Tabs.Root value="caddy">
-				<Tabs.List class="grid w-full grid-cols-2">
-					<Tabs.Trigger value="caddy">Caddy</Tabs.Trigger>
-					<Tabs.Trigger value="traefik">Traefik</Tabs.Trigger>
-				</Tabs.List>
-				<Tabs.Content value="caddy" class="mt-4">
-					<CopyToClipboard value={forwardAuthCaddySnippet()}>
-						<pre class="bg-muted overflow-x-auto rounded-md p-4 text-xs">
-{forwardAuthCaddySnippet()}</pre>
-					</CopyToClipboard>
-				</Tabs.Content>
-				<Tabs.Content value="traefik" class="mt-4">
-					<CopyToClipboard value={forwardAuthTraefikSnippet()}>
-						<pre class="bg-muted overflow-x-auto rounded-md p-4 text-xs">
-{forwardAuthTraefikSnippet()}</pre>
-					</CopyToClipboard>
-				</Tabs.Content>
-			</Tabs.Root>
+			<div class="text-muted-foreground space-y-2 text-sm">
+				<p>Protected host: {client.forwardAuthExternalURL}</p>
+				<p>
+					Upstream target:
+					{client.forwardAuthUpstreamURL || 'Not configured. Pocket ID will only expose the login endpoints until an upstream URL is set.'}
+				</p>
+				<p>
+					Pocket ID will inject these identity headers to the upstream:
+					{forwardAuthHeaderNames.join(', ')}
+				</p>
+			</div>
 		</Card.Content>
 	</Card.Root>
 {/if}

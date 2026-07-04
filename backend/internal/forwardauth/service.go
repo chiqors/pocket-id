@@ -55,6 +55,55 @@ func (s *Service) getClient(ctx context.Context, clientID string) (model.OidcCli
 	return client, nil
 }
 
+func (s *Service) getClientForExternalURL(ctx context.Context, raw string) (model.OidcClient, error) {
+	protectedURL, err := url.Parse(raw)
+	if err != nil {
+		return model.OidcClient{}, err
+	}
+
+	var clients []model.OidcClient
+	err = s.db.
+		WithContext(ctx).
+		Preload("AllowedUserGroups").
+		Where("forward_auth_enabled = ?", true).
+		Where("forward_auth_external_url IS NOT NULL AND forward_auth_external_url <> ''").
+		Where("forward_auth_upstream_url IS NOT NULL AND forward_auth_upstream_url <> ''").
+		Find(&clients).
+		Error
+	if err != nil {
+		return model.OidcClient{}, err
+	}
+
+	var bestMatch *model.OidcClient
+	bestPathLen := -1
+	for i := range clients {
+		externalURL, parseErr := parseExternalURL(clients[i])
+		if parseErr != nil {
+			continue
+		}
+
+		if !sameAuthority(externalURL, protectedURL) {
+			continue
+		}
+
+		if !pathMatchesPrefix(externalURL.Path, protectedURL.Path) {
+			continue
+		}
+
+		pathLen := len(cleanPath(externalURL.Path))
+		if pathLen > bestPathLen {
+			bestMatch = &clients[i]
+			bestPathLen = pathLen
+		}
+	}
+
+	if bestMatch == nil {
+		return model.OidcClient{}, gorm.ErrRecordNotFound
+	}
+
+	return *bestMatch, nil
+}
+
 func (s *Service) validateUserAccess(ctx context.Context, userID string, client model.OidcClient) (model.User, error) {
 	var user model.User
 	err := s.db.
@@ -290,6 +339,14 @@ func parseExternalURL(client model.OidcClient) (*url.URL, error) {
 	}
 
 	return url.Parse(*client.ForwardAuthExternalURL)
+}
+
+func parseUpstreamURL(client model.OidcClient) (*url.URL, error) {
+	if client.ForwardAuthUpstreamURL == nil || *client.ForwardAuthUpstreamURL == "" {
+		return nil, errors.New("forward auth upstream URL is missing")
+	}
+
+	return url.Parse(*client.ForwardAuthUpstreamURL)
 }
 
 func sameAuthority(expected *url.URL, actual *url.URL) bool {

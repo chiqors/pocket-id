@@ -9,3 +9,7 @@ import (
 func RegisterFrontend(router *gin.Engine) error {
 	return ErrFrontendNotIncluded
 }
+
+func NewHandler() (gin.HandlerFunc, error) {
+	return nil, ErrFrontendNotIncluded
+}

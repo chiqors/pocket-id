@@ -35,6 +35,7 @@ export type OidcClient = OidcClientMetaData & {
 	pkceSupported: boolean;
 	forwardAuthEnabled: boolean;
 	forwardAuthExternalURL?: string;
+	forwardAuthUpstreamURL?: string;
 };
 
 export type OidcClientWithAllowedUserGroups = OidcClient & {

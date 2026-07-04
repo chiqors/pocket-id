@@ -1,6 +1,7 @@
 package forwardauth
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -144,6 +145,66 @@ func TestAuthorizeClearsCookieWhenUserNoLongerHasAccess(t *testing.T) {
 	assert.Equal(t, -1, clearedCookie.MaxAge)
 }
 
+func TestProxyProviderFlow(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service, client, user := newTestService(t)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.WriteString(w, strings.Join([]string{
+			r.URL.Path,
+			r.URL.RawQuery,
+			r.Header.Get("X-Pocket-Id-User-Id"),
+			r.Header.Get("X-Pocket-Id-Username"),
+			r.Header.Get("X-Pocket-Id-Email"),
+			r.Header.Get("X-Forwarded-Host"),
+			r.Header.Get("X-Forwarded-Proto"),
+			r.Header.Get("X-Forwarded-Uri"),
+		}, "\n"))
+	}))
+	defer upstream.Close()
+
+	require.NoError(t, service.db.Model(&model.OidcClient{}).Where("id = ?", client.ID).
+		Update("forward_auth_upstream_url", upstream.URL+"/base").Error)
+
+	client, err := service.getClient(t.Context(), client.ID)
+	require.NoError(t, err)
+
+	router := newTestRouter(service, user.ID)
+
+	startRecorder := doForwardAuthRequest(t, router, requestSpec{
+		method: http.MethodGet,
+		target: "/app/dashboard?view=full",
+		host:   "app.example.com",
+		proto:  "https",
+	})
+	require.Equal(t, http.StatusFound, startRecorder.Code)
+	require.Equal(t, "https://app.example.com/.pocket-id/start/"+client.ID+"?return_to=https%3A%2F%2Fapp.example.com%2Fapp%2Fdashboard%3Fview%3Dfull", startRecorder.Header().Get("Location"))
+
+	loginToken, err := service.createLoginToken(t.Context(), client.ID, "https://app.example.com/app/dashboard?view=full")
+	require.NoError(t, err)
+	require.NoError(t, service.markLoginTokenAuthenticated(t.Context(), client.ID, loginToken, user.ID))
+
+	callbackRecorder := doForwardAuthRequest(t, router, requestSpec{
+		method: http.MethodGet,
+		target: "/.pocket-id/callback/" + client.ID + "?token=" + url.QueryEscape(loginToken),
+		host:   "app.example.com",
+		proto:  "https",
+	})
+	require.Equal(t, http.StatusFound, callbackRecorder.Code)
+	sessionCookie := findCookie(t, callbackRecorder.Result().Cookies(), "__Host-pid-fa-")
+
+	proxyRecorder := doForwardAuthRequest(t, router, requestSpec{
+		method: http.MethodGet,
+		target: "/app/dashboard?view=full",
+		host:   "app.example.com",
+		proto:  "https",
+		cookie: sessionCookie,
+	})
+	require.Equal(t, http.StatusOK, proxyRecorder.Code)
+	require.Equal(t, "/base/dashboard\nview=full\nuser-1\nalice\nalice@example.com\napp.example.com\nhttps\n/app/dashboard?view=full", strings.TrimSpace(proxyRecorder.Body.String()))
+}
+
 type requestSpec struct {
 	method  string
 	target  string
@@ -159,6 +220,7 @@ func newTestRouter(service *Service, userID string) *gin.Engine {
 		service: service,
 		handler: newHandler(service),
 	}
+	router.Use(module.ProxyMiddleware())
 
 	rootGroup := router.Group("/")
 	apiGroup := router.Group("/api")

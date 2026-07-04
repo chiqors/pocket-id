@@ -38,3 +38,7 @@ func (m *Module) RegisterRoutes(rootGroup *gin.RouterGroup, apiGroup *gin.Router
 
 	apiGroup.GET("/forward-auth/complete/:clientId", browserAuth, m.handler.complete)
 }
+
+func (m *Module) ProxyMiddleware() gin.HandlerFunc {
+	return m.handler.proxyMiddleware()
+}

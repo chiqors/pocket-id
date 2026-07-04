@@ -3,7 +3,9 @@ package forwardauth
 import (
 	"errors"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -304,6 +306,118 @@ func (h *handler) logout(c *gin.Context) {
 	c.Redirect(http.StatusFound, returnTo)
 }
 
+func (h *handler) proxyMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		currentURL, err := requestPublicURL(c.Request)
+		if err != nil {
+			_ = c.Error(&common.ValidationError{Message: err.Error()})
+			return
+		}
+
+		if h.isPocketIDHost(currentURL) {
+			c.Next()
+			return
+		}
+
+		if strings.HasPrefix(c.Request.URL.Path, "/.pocket-id/") {
+			c.Next()
+			return
+		}
+
+		client, err := h.service.getClientForExternalURL(c.Request.Context(), currentURL.String())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.Status(http.StatusNotFound)
+			c.Abort()
+			return
+		}
+		if err != nil {
+			_ = c.Error(err)
+			c.Abort()
+			return
+		}
+
+		cookieName, secure, err := sessionCookieSpec(client)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
+
+		rawToken, _ := c.Cookie(cookieName)
+		user, err := h.service.validateProxySession(c.Request.Context(), client, rawToken)
+		switch {
+		case err == nil:
+			h.proxyUpstream(c, client, user, currentURL)
+			c.Abort()
+			return
+		case errors.Is(err, errProxySessionNotFound):
+			clearSessionCookie(c, cookieName, secure)
+			startURL, err := h.service.startURL(client, currentURL.String())
+			if err != nil {
+				_ = c.Error(err)
+				c.Abort()
+				return
+			}
+			c.Redirect(http.StatusFound, startURL)
+			c.Abort()
+			return
+		case errors.Is(err, errForwardAuthAccessDenied):
+			clearSessionCookie(c, cookieName, secure)
+			c.Status(http.StatusForbidden)
+			c.Abort()
+			return
+		default:
+			_ = c.Error(err)
+			c.Abort()
+			return
+		}
+	}
+}
+
+func (h *handler) isPocketIDHost(currentURL *url.URL) bool {
+	baseURL, err := url.Parse(h.service.baseURL)
+	if err != nil {
+		return false
+	}
+
+	return sameAuthority(baseURL, currentURL)
+}
+
+func (h *handler) proxyUpstream(c *gin.Context, client model.OidcClient, user model.User, currentURL *url.URL) {
+	upstreamURL, err := parseUpstreamURL(client)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	externalURL, err := parseExternalURL(client)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	targetURL := proxyTargetURL(upstreamURL, externalURL, currentURL)
+	rewrite := func(req *httputil.ProxyRequest) {
+		req.SetURL(upstreamURL)
+		req.Out.URL.Path = targetURL.Path
+		req.Out.URL.RawPath = targetURL.RawPath
+		req.Out.URL.RawQuery = targetURL.RawQuery
+		req.Out.Host = targetURL.Host
+		req.Out.Header.Set("X-Forwarded-Host", currentURL.Host)
+		req.Out.Header.Set("X-Forwarded-Proto", currentURL.Scheme)
+		req.Out.Header.Set("X-Forwarded-Uri", currentURL.RequestURI())
+		req.Out.Header.Set("X-Forwarded-For", clientIP(c.Request))
+		applyIdentityHeaders(req.Out.Header, user, client.ID)
+	}
+
+	proxy := &httputil.ReverseProxy{
+		Rewrite: rewrite,
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, proxyErr error) {
+			_ = c.Error(proxyErr)
+		},
+	}
+	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
 func setNoStoreHeaders(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Pragma", "no-cache")
@@ -350,6 +464,10 @@ func sessionCookieSpec(client model.OidcClient) (string, bool, error) {
 }
 
 func writeIdentityHeaders(c *gin.Context, user model.User, clientID string) {
+	applyIdentityHeaders(c.Writer.Header(), user, clientID)
+}
+
+func applyIdentityHeaders(header http.Header, user model.User, clientID string) {
 	groups := make([]string, len(user.UserGroups))
 	for i, group := range user.UserGroups {
 		groups[i] = group.Name
@@ -361,16 +479,65 @@ func writeIdentityHeaders(c *gin.Context, user model.User, clientID string) {
 		displayName = user.FullName()
 	}
 
-	c.Header("X-Pocket-Id-User-Id", user.ID)
-	c.Header("X-Pocket-Id-Username", user.Username)
-	c.Header("X-Pocket-Id-Name", user.FullName())
-	c.Header("X-Pocket-Id-Display-Name", displayName)
-	c.Header("X-Pocket-Id-Is-Admin", strconv.FormatBool(user.IsAdmin))
-	c.Header("X-Pocket-Id-Client-Id", clientID)
-	c.Header("X-Pocket-Id-Groups", strings.Join(groups, ","))
+	header.Set("X-Pocket-Id-User-Id", user.ID)
+	header.Set("X-Pocket-Id-Username", user.Username)
+	header.Set("X-Pocket-Id-Name", user.FullName())
+	header.Set("X-Pocket-Id-Display-Name", displayName)
+	header.Set("X-Pocket-Id-Is-Admin", strconv.FormatBool(user.IsAdmin))
+	header.Set("X-Pocket-Id-Client-Id", clientID)
+	header.Set("X-Pocket-Id-Groups", strings.Join(groups, ","))
 	if user.Email != nil && *user.Email != "" {
-		c.Header("X-Pocket-Id-Email", *user.Email)
+		header.Set("X-Pocket-Id-Email", *user.Email)
 	}
+}
+
+func proxyTargetURL(upstreamURL *url.URL, externalURL *url.URL, currentURL *url.URL) *url.URL {
+	targetURL := *upstreamURL
+	targetURL.Path = joinProxyPath(upstreamURL.Path, externalURL.Path, currentURL.Path)
+	targetURL.RawPath = targetURL.Path
+	targetURL.RawQuery = currentURL.RawQuery
+	targetURL.Fragment = ""
+
+	return &targetURL
+}
+
+func joinProxyPath(upstreamPath string, externalPath string, requestPath string) string {
+	upstreamPath = cleanPath(upstreamPath)
+	externalPath = cleanPath(externalPath)
+	requestPath = cleanPath(requestPath)
+
+	suffix := requestPath
+	if externalPath != "/" {
+		switch {
+		case requestPath == externalPath:
+			suffix = "/"
+		case strings.HasPrefix(requestPath, strings.TrimRight(externalPath, "/")+"/"):
+			suffix = strings.TrimPrefix(requestPath, strings.TrimRight(externalPath, "/"))
+		}
+	}
+
+	if suffix == "" {
+		suffix = "/"
+	}
+
+	if upstreamPath == "/" {
+		return cleanPath(suffix)
+	}
+
+	return path.Join(upstreamPath, strings.TrimPrefix(suffix, "/"))
+}
+
+func clientIP(r *http.Request) string {
+	if forwardedFor := forwardedHeaderValue(r, "X-Forwarded-For"); forwardedFor != "" {
+		return forwardedFor
+	}
+
+	host, _, found := strings.Cut(r.RemoteAddr, ":")
+	if !found {
+		return strings.TrimSpace(r.RemoteAddr)
+	}
+
+	return host
 }
 
 func requestPublicURL(r *http.Request) (*url.URL, error) {

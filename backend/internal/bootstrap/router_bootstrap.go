@@ -108,8 +108,8 @@ func registerGlobalMiddleware(r *gin.Engine) {
 }
 
 func registerRoutes(r *gin.Engine, db *gorm.DB, svc *services, rateLimitServices map[string]*ratelimit.RateLimitService) error {
-
-	err := frontend.RegisterFrontend(r)
+	var frontendHandler gin.HandlerFunc
+	frontendHandler, err := frontend.NewHandler()
 	if errors.Is(err, frontend.ErrFrontendNotIncluded) {
 		slog.Warn("Frontend is not included in the build. Skipping frontend registration.")
 	} else if err != nil {
@@ -121,6 +121,7 @@ func registerRoutes(r *gin.Engine, db *gorm.DB, svc *services, rateLimitServices
 	fileSizeLimitMiddleware := middleware.NewFileSizeLimitMiddleware()
 	rateLimitMiddleware := middleware.NewRateLimitMiddleware(rateLimitServices)
 	apiRateLimitMiddleware := rateLimitMiddleware.Add(middleware.RateLimitAPI)
+	r.Use(svc.forwardAuthModule.ProxyMiddleware())
 
 	apiGroup := r.Group("/api", apiRateLimitMiddleware)
 	baseGroup := r.Group("/", apiRateLimitMiddleware)
@@ -159,6 +160,10 @@ func registerRoutes(r *gin.Engine, db *gorm.DB, svc *services, rateLimitServices
 
 	// These are not rate-limited.
 	controller.NewHealthzController(r)
+
+	if frontendHandler != nil {
+		r.NoRoute(frontendHandler)
+	}
 
 	return nil
 }

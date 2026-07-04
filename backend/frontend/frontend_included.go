@@ -54,15 +54,26 @@ func init() {
 }
 
 func RegisterFrontend(router *gin.Engine) error {
+	handler, err := NewHandler()
+	if err != nil {
+		return err
+	}
+
+	router.NoRoute(handler)
+
+	return nil
+}
+
+func NewHandler() (gin.HandlerFunc, error) {
 	distFS, err := fs.Sub(frontendFS, "dist")
 	if err != nil {
-		return fmt.Errorf("failed to create sub FS: %w", err)
+		return nil, fmt.Errorf("failed to create sub FS: %w", err)
 	}
 
 	// Load a map of all files to see which ones are available pre-compressed
 	preCompressed, err := listPreCompressedAssets(distFS)
 	if err != nil {
-		return fmt.Errorf("failed to index pre-compressed frontend assets: %w", err)
+		return nil, fmt.Errorf("failed to index pre-compressed frontend assets: %w", err)
 	}
 
 	// Init the file server
@@ -100,9 +111,7 @@ func RegisterFrontend(router *gin.Engine) error {
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	}
 
-	router.NoRoute(handler)
-
-	return nil
+	return handler, nil
 }
 
 func isSPARequest(path string, distFS fs.FS) bool {

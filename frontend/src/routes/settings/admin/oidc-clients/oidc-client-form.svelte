@@ -55,6 +55,7 @@
 		launchURL: existingClient?.launchURL || '',
 		forwardAuthEnabled: existingClient?.forwardAuthEnabled || false,
 		forwardAuthExternalURL: existingClient?.forwardAuthExternalURL || '',
+		forwardAuthUpstreamURL: existingClient?.forwardAuthUpstreamURL || '',
 		credentials: {
 			federatedIdentities: existingClient?.credentials?.federatedIdentities || []
 		},
@@ -86,6 +87,7 @@
 			launchURL: optionalUrl,
 			forwardAuthEnabled: z.boolean(),
 			forwardAuthExternalURL: optionalUrl,
+			forwardAuthUpstreamURL: optionalUrl,
 			logoUrl: optionalUrl,
 			darkLogoUrl: optionalUrl,
 			credentials: z.object({
@@ -233,13 +235,20 @@
 					bind:checked={$inputs.forwardAuthEnabled.value}
 				/>
 				{#if $inputs.forwardAuthEnabled.value}
-					<div transition:slide={{ duration: 200 }}>
+					<div class="grid gap-4" transition:slide={{ duration: 200 }}>
 						<FormInput
 							label={m.forward_auth_external_url()}
 							description={m.forward_auth_external_url_description()}
 							class="w-full"
 							type="url"
 							bind:input={$inputs.forwardAuthExternalURL}
+						/>
+						<FormInput
+							label="Forward Auth Upstream URL"
+							description="Optional reverse proxy upstream. Set this to make Pocket ID behave like a proxy provider for the protected app."
+							class="w-full"
+							type="url"
+							bind:input={$inputs.forwardAuthUpstreamURL}
 						/>
 					</div>
 				{/if}

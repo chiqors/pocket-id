@@ -57,6 +57,43 @@ func TestNormalizeForwardAuthExternalURL(t *testing.T) {
 	}
 }
 
+func TestNormalizeForwardAuthUpstreamURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     *string
+		want      *string
+		wantError string
+	}{
+		{
+			name:  "empty value is ignored",
+			input: stringPtr(" "),
+		},
+		{
+			name:  "absolute url is trimmed and normalized",
+			input: stringPtr(" http://nginx.nginx.svc.cluster.local:80/ "),
+			want:  stringPtr("http://nginx.nginx.svc.cluster.local:80"),
+		},
+		{
+			name:      "relative url is rejected",
+			input:     stringPtr("/nginx"),
+			wantError: "forward auth upstream URL must be absolute",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizeForwardAuthUpstreamURL(tt.input)
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestUpdateOIDCClientModelFromDtoRequiresForwardAuthExternalURL(t *testing.T) {
 	client := model.OidcClient{}
 
@@ -78,11 +115,14 @@ func TestUpdateOIDCClientModelFromDtoStoresForwardAuthFields(t *testing.T) {
 		Name:                   "Protected App",
 		ForwardAuthEnabled:     true,
 		ForwardAuthExternalURL: stringPtr("https://app.example.com/protected/"),
+		ForwardAuthUpstreamURL: stringPtr("http://nginx.nginx.svc.cluster.local:80/"),
 	})
 	require.NoError(t, err)
 	require.True(t, client.ForwardAuthEnabled)
 	require.NotNil(t, client.ForwardAuthExternalURL)
 	require.Equal(t, "https://app.example.com/protected", *client.ForwardAuthExternalURL)
+	require.NotNil(t, client.ForwardAuthUpstreamURL)
+	require.Equal(t, "http://nginx.nginx.svc.cluster.local:80", *client.ForwardAuthUpstreamURL)
 }
 
 func stringPtr(value string) *string {

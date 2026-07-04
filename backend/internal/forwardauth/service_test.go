@@ -108,6 +108,7 @@ func newTestService(t *testing.T) (*Service, model.OidcClient, model.User) {
 	require.NoError(t, db.Model(&user).Association("UserGroups").Append(&group))
 
 	externalURL := "https://app.example.com/app"
+	upstreamURL := "http://upstream.example.internal/base"
 	client := model.OidcClient{
 		Base:                   model.Base{ID: "client-1"},
 		Name:                   "Protected App",
@@ -115,6 +116,7 @@ func newTestService(t *testing.T) (*Service, model.OidcClient, model.User) {
 		IsGroupRestricted:      true,
 		ForwardAuthEnabled:     true,
 		ForwardAuthExternalURL: &externalURL,
+		ForwardAuthUpstreamURL: &upstreamURL,
 	}
 	require.NoError(t, db.Create(&client).Error)
 	require.NoError(t, db.Model(&client).Association("AllowedUserGroups").Append(&group))
