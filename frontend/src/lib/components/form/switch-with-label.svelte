@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Label } from '$lib/components/ui/label';
 	import { Switch } from '$lib/components/ui/switch/index.js';
+	import { cn } from '$lib/utils/style';
+	import type { HTMLAttributes } from 'svelte/elements';
 
 	let {
 		id,
@@ -8,8 +10,10 @@
 		label,
 		description,
 		disabled = false,
-		onCheckedChange
+		onCheckedChange,
+		class: className
 	}: {
+		class?: HTMLAttributes<HTMLDivElement>['class'];
 		id: string;
 		checked: boolean;
 		label: string;
@@ -19,19 +23,19 @@
 	} = $props();
 </script>
 
-<div class="items-top flex space-x-2">
+<div class={cn('grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3', className)}>
 	<Switch
 		{id}
 		{disabled}
 		onCheckedChange={(v) => onCheckedChange && onCheckedChange(v == true)}
 		bind:checked
 	/>
-	<div class="grid gap-1.5 leading-none">
+	<div class="min-w-0 space-y-1.5 leading-none">
 		<Label for={id} class="mb-0 text-sm leading-none font-medium">
 			{label}
 		</Label>
 		{#if description}
-			<p class="text-muted-foreground text-[0.8rem]">
+			<p class="text-muted-foreground text-[0.8rem] leading-snug">
 				{description}
 			</p>
 		{/if}

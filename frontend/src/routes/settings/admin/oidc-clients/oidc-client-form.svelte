@@ -209,23 +209,6 @@
 			type="url"
 			bind:input={$inputs.launchURL}
 		/>
-		<SwitchWithLabel
-			id="forward-auth-enabled"
-			label={m.forward_auth()}
-			description={m.forward_auth_description()}
-			bind:checked={$inputs.forwardAuthEnabled.value}
-		/>
-		{#if $inputs.forwardAuthEnabled.value}
-			<div transition:slide={{ duration: 200 }}>
-				<FormInput
-					label={m.forward_auth_external_url()}
-					description={m.forward_auth_external_url_description()}
-					class="w-full"
-					type="url"
-					bind:input={$inputs.forwardAuthExternalURL}
-				/>
-			</div>
-		{/if}
 		<OidcCallbackUrlInput
 			label={m.callback_urls()}
 			description={m.callback_url_description()}
@@ -240,6 +223,28 @@
 			bind:callbackURLs={$inputs.logoutCallbackURLs.value}
 			bind:error={$inputs.logoutCallbackURLs.error}
 		/>
+		<div class="md:col-span-2">
+			<div class="grid gap-4 md:grid-cols-2 md:items-start">
+				<SwitchWithLabel
+					class="md:pt-1"
+					id="forward-auth-enabled"
+					label={m.forward_auth()}
+					description={m.forward_auth_description()}
+					bind:checked={$inputs.forwardAuthEnabled.value}
+				/>
+				{#if $inputs.forwardAuthEnabled.value}
+					<div transition:slide={{ duration: 200 }}>
+						<FormInput
+							label={m.forward_auth_external_url()}
+							description={m.forward_auth_external_url_description()}
+							class="w-full"
+							type="url"
+							bind:input={$inputs.forwardAuthExternalURL}
+						/>
+					</div>
+				{/if}
+			</div>
+		</div>
 		<SwitchWithLabel
 			id="public-client"
 			label={m.public_client()}
