@@ -7,6 +7,7 @@
 	import appConfigStore from '$lib/stores/application-configuration-store';
 	import userStore from '$lib/stores/user-store';
 	import { getWebauthnErrorMessage } from '$lib/utils/error-util';
+	import { shouldUseBrowserNavigationForRedirect } from '$lib/utils/redirection-util';
 	import { startAuthentication } from '@simplewebauthn/browser';
 	import { fade } from 'svelte/transition';
 	import LoginLogoErrorSuccessIndicator from './components/login-logo-error-success-indicator.svelte';
@@ -27,7 +28,11 @@
 			const user = await webauthnService.finishLogin(authResponse);
 
 			await userStore.setUser(user);
-			goto(data.redirect || '/settings');
+			if (shouldUseBrowserNavigationForRedirect(data.redirect || '/settings')) {
+				window.location.assign(data.redirect || '/settings');
+			} else {
+				goto(data.redirect || '/settings');
+			}
 		} catch (e) {
 			error = getWebauthnErrorMessage(e);
 		}

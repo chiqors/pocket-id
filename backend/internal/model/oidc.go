@@ -37,6 +37,8 @@ type OidcClient struct {
 	LaunchURL                           *string
 	IsGroupRestricted                   bool `sortable:"true" filterable:"true"`
 	PkceSupported                       bool `sortable:"true" filterable:"true"`
+	ForwardAuthEnabled                  bool `sortable:"true" filterable:"true"`
+	ForwardAuthExternalURL              *string
 
 	AllowedUserGroups         []UserGroup `gorm:"many2many:oidc_clients_allowed_user_groups;"`
 	CreatedByID               *string

@@ -22,6 +22,8 @@ type OidcClientDto struct {
 	Credentials                         OidcClientCredentialsDto `json:"credentials"`
 	IsGroupRestricted                   bool                     `json:"isGroupRestricted"`
 	PkceSupported                       bool                     `json:"pkceSupported,omitempty"`
+	ForwardAuthEnabled                  bool                     `json:"forwardAuthEnabled"`
+	ForwardAuthExternalURL              *string                  `json:"forwardAuthExternalURL"`
 }
 
 type OidcClientWithAllowedUserGroupsDto struct {
@@ -50,6 +52,8 @@ type OidcClientUpdateDto struct {
 	LogoURL                             *string                  `json:"logoUrl"`
 	DarkLogoURL                         *string                  `json:"darkLogoUrl"`
 	IsGroupRestricted                   bool                     `json:"isGroupRestricted"`
+	ForwardAuthEnabled                  bool                     `json:"forwardAuthEnabled"`
+	ForwardAuthExternalURL              *string                  `json:"forwardAuthExternalURL" binding:"omitempty,url"`
 }
 
 type OidcClientCreateDto struct {

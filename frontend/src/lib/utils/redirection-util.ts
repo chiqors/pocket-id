@@ -1,5 +1,13 @@
 import type { User } from '$lib/types/user.type';
 
+export function isSafeInternalRedirectPath(redirect: string | null) {
+	return !!redirect && redirect.startsWith('/') && !redirect.startsWith('//');
+}
+
+export function shouldUseBrowserNavigationForRedirect(redirect: string) {
+	return redirect.startsWith('/api/forward-auth/complete/');
+}
+
 // Returns the path to redirect to based on the current path and user authentication status
 // If no redirect is needed, it returns null
 export function getAuthRedirectPath(url: URL, user: User | null) {
@@ -18,7 +26,14 @@ export function getAuthRedirectPath(url: URL, user: User | null) {
 
 	const isPublicPath =
 		path.startsWith('/lc/') ||
-		['/interaction', '/interaction/error', '/login/alternative/code', '/device', '/health', '/healthz'].includes(path);
+		[
+			'/interaction',
+			'/interaction/error',
+			'/login/alternative/code',
+			'/device',
+			'/health',
+			'/healthz'
+		].includes(path);
 
 	const isAdminPath = path == '/settings/admin' || path.startsWith('/settings/admin/');
 
@@ -28,6 +43,11 @@ export function getAuthRedirectPath(url: URL, user: User | null) {
 	}
 
 	if (isUnauthenticatedOnlyPath && isSignedIn) {
+		const requestedRedirect = url.searchParams.get('redirect');
+		if (isSafeInternalRedirectPath(requestedRedirect)) {
+			return requestedRedirect;
+		}
+
 		return '/settings';
 	}
 

@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/pocket-id/pocket-id/backend/internal/common"
+	"github.com/pocket-id/pocket-id/backend/internal/forwardauth"
 	"github.com/pocket-id/pocket-id/backend/internal/model"
 	datatype "github.com/pocket-id/pocket-id/backend/internal/model/types"
 	"github.com/pocket-id/pocket-id/backend/internal/oidc"
@@ -40,6 +41,8 @@ func (s *Scheduler) RegisterDbCleanupJobs(ctx context.Context, db *gorm.DB) erro
 		s.RegisterJob(ctx, "ClearOAuth2Sessions", jobDefWithJitter(24*time.Hour), jobs.clearOAuth2Sessions, service.RegisterJobOpts{RunImmediately: true, BackOff: newBackOff()}),
 		s.RegisterJob(ctx, "ClearOAuth2JTIs", jobDefWithJitter(24*time.Hour), jobs.clearOAuth2JTIs, service.RegisterJobOpts{RunImmediately: true, BackOff: newBackOff()}),
 		s.RegisterJob(ctx, "ClearInteractionSessions", jobDefWithJitter(24*time.Hour), jobs.clearInteractionSessions, service.RegisterJobOpts{RunImmediately: true, BackOff: newBackOff()}),
+		s.RegisterJob(ctx, "ClearForwardAuthSessions", jobDefWithJitter(24*time.Hour), jobs.clearForwardAuthSessions, service.RegisterJobOpts{RunImmediately: true, BackOff: newBackOff()}),
+		s.RegisterJob(ctx, "ClearForwardAuthLoginTokens", jobDefWithJitter(24*time.Hour), jobs.clearForwardAuthLoginTokens, service.RegisterJobOpts{RunImmediately: true, BackOff: newBackOff()}),
 		s.RegisterJob(ctx, "ClearReauthenticationTokens", jobDefWithJitter(24*time.Hour), jobs.clearReauthenticationTokens, service.RegisterJobOpts{RunImmediately: true, BackOff: newBackOff()}),
 		s.RegisterJob(ctx, "ClearAuditLogs", jobDefWithJitter(24*time.Hour), jobs.clearAuditLogs, service.RegisterJobOpts{RunImmediately: true, BackOff: newBackOff()}),
 	)
@@ -119,6 +122,30 @@ func (j *DbCleanupJobs) clearInteractionSessions(ctx context.Context) error {
 	}
 
 	slog.InfoContext(ctx, "Cleaned interaction sessions", slog.Int64("count", count))
+
+	return nil
+}
+
+// clearForwardAuthSessions deletes expired forward auth proxy sessions.
+func (j *DbCleanupJobs) clearForwardAuthSessions(ctx context.Context) error {
+	count, err := forwardauth.CleanupExpiredSessions(ctx, j.db)
+	if err != nil {
+		return fmt.Errorf("failed to clean forward auth sessions: %w", err)
+	}
+
+	slog.InfoContext(ctx, "Cleaned forward auth sessions", slog.Int64("count", count))
+
+	return nil
+}
+
+// clearForwardAuthLoginTokens deletes expired forward auth login tokens.
+func (j *DbCleanupJobs) clearForwardAuthLoginTokens(ctx context.Context) error {
+	count, err := forwardauth.CleanupExpiredLoginTokens(ctx, j.db)
+	if err != nil {
+		return fmt.Errorf("failed to clean forward auth login tokens: %w", err)
+	}
+
+	slog.InfoContext(ctx, "Cleaned forward auth login tokens", slog.Int64("count", count))
 
 	return nil
 }

@@ -8,6 +8,7 @@
 	import UserService from '$lib/services/user-service';
 	import userStore from '$lib/stores/user-store.js';
 	import { getAxiosErrorMessage } from '$lib/utils/error-util';
+	import { shouldUseBrowserNavigationForRedirect } from '$lib/utils/redirection-util';
 	import { preventDefault } from '$lib/utils/event-util';
 	import { onMount } from 'svelte';
 	import LoginLogoErrorSuccessIndicator from '../../components/login-logo-error-success-indicator.svelte';
@@ -40,7 +41,11 @@
 			await userStore.setUser(user);
 
 			try {
-				goto(data.redirect);
+				if (shouldUseBrowserNavigationForRedirect(data.redirect)) {
+					window.location.assign(data.redirect);
+				} else {
+					goto(data.redirect);
+				}
 			} catch (e) {
 				error = m.invalid_redirect_url();
 			}

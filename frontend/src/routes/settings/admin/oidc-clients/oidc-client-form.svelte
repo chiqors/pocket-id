@@ -53,6 +53,8 @@
 			existingClient?.requiresPushedAuthorizationRequests || false,
 		skipConsent: existingClient?.skipConsent || false,
 		launchURL: existingClient?.launchURL || '',
+		forwardAuthEnabled: existingClient?.forwardAuthEnabled || false,
+		forwardAuthExternalURL: existingClient?.forwardAuthExternalURL || '',
 		credentials: {
 			federatedIdentities: existingClient?.credentials?.federatedIdentities || []
 		},
@@ -61,40 +63,54 @@
 		pkceSupported: existingClient?.pkceSupported || false
 	};
 
-	const formSchema = z.object({
-		id: emptyToUndefined(
-			z
-				.string()
-				.min(2)
-				.max(128)
-				.regex(/^[a-zA-Z0-9_-]+$/, {
-					message: m.invalid_client_id()
-				})
-				.optional()
-		),
-		name: z.string().min(2).max(50),
-		callbackURLs: z.array(callbackUrlSchema).default([]),
-		logoutCallbackURLs: z.array(callbackUrlSchema).default([]),
-		isPublic: z.boolean(),
-		pkceEnabled: z.boolean(),
-		requiresReauthentication: z.boolean(),
-		requiresPushedAuthorizationRequests: z.boolean(),
-		skipConsent: z.boolean(),
-		launchURL: optionalUrl,
-		logoUrl: optionalUrl,
-		darkLogoUrl: optionalUrl,
-		credentials: z.object({
-			federatedIdentities: z.array(
-				z.object({
-					issuer: z.url(),
-					subject: z.string().optional(),
-					audience: z.string().optional(),
-					jwks: z.url().optional().or(z.literal('')),
-					replayProtection: z.boolean().default(true)
-				})
-			)
+	const formSchema = z
+		.object({
+			id: emptyToUndefined(
+				z
+					.string()
+					.min(2)
+					.max(128)
+					.regex(/^[a-zA-Z0-9_-]+$/, {
+						message: m.invalid_client_id()
+					})
+					.optional()
+			),
+			name: z.string().min(2).max(50),
+			callbackURLs: z.array(callbackUrlSchema).default([]),
+			logoutCallbackURLs: z.array(callbackUrlSchema).default([]),
+			isPublic: z.boolean(),
+			pkceEnabled: z.boolean(),
+			requiresReauthentication: z.boolean(),
+			requiresPushedAuthorizationRequests: z.boolean(),
+			skipConsent: z.boolean(),
+			launchURL: optionalUrl,
+			forwardAuthEnabled: z.boolean(),
+			forwardAuthExternalURL: optionalUrl,
+			logoUrl: optionalUrl,
+			darkLogoUrl: optionalUrl,
+			credentials: z.object({
+				federatedIdentities: z.array(
+					z.object({
+						issuer: z.url(),
+						subject: z.string().optional(),
+						audience: z.string().optional(),
+						jwks: z.url().optional().or(z.literal('')),
+						replayProtection: z.boolean().default(true)
+					})
+				)
+			})
 		})
-	});
+		.superRefine((value, ctx) => {
+			if (!value.forwardAuthEnabled || value.forwardAuthExternalURL) {
+				return;
+			}
+
+			ctx.addIssue({
+				code: 'custom',
+				path: ['forwardAuthExternalURL'],
+				message: m.forward_auth_external_url_required()
+			});
+		});
 
 	type FormSchema = typeof formSchema;
 	const { inputs, errors, ...form } = createForm<FormSchema>(formSchema, client);
@@ -193,6 +209,23 @@
 			type="url"
 			bind:input={$inputs.launchURL}
 		/>
+		<SwitchWithLabel
+			id="forward-auth-enabled"
+			label={m.forward_auth()}
+			description={m.forward_auth_description()}
+			bind:checked={$inputs.forwardAuthEnabled.value}
+		/>
+		{#if $inputs.forwardAuthEnabled.value}
+			<div transition:slide={{ duration: 200 }}>
+				<FormInput
+					label={m.forward_auth_external_url()}
+					description={m.forward_auth_external_url_description()}
+					class="w-full"
+					type="url"
+					bind:input={$inputs.forwardAuthExternalURL}
+				/>
+			</div>
+		{/if}
 		<OidcCallbackUrlInput
 			label={m.callback_urls()}
 			description={m.callback_url_description()}

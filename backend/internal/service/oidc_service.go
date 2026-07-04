@@ -127,7 +127,9 @@ func (s *OidcService) CreateClient(ctx context.Context, input dto.OidcClientCrea
 		},
 		CreatedByID: new(userID),
 	}
-	updateOIDCClientModelFromDto(&client, &input.OidcClientUpdateDto)
+	if err := updateOIDCClientModelFromDto(&client, &input.OidcClientUpdateDto); err != nil {
+		return model.OidcClient{}, err
+	}
 
 	err := s.db.
 		WithContext(ctx).
@@ -172,7 +174,9 @@ func (s *OidcService) UpdateClient(ctx context.Context, clientID string, input d
 		return model.OidcClient{}, err
 	}
 
-	updateOIDCClientModelFromDto(&client, &input)
+	if err := updateOIDCClientModelFromDto(&client, &input); err != nil {
+		return model.OidcClient{}, err
+	}
 
 	if !input.IsGroupRestricted {
 		// Clear allowed user groups if the restriction is removed
@@ -210,7 +214,7 @@ func (s *OidcService) UpdateClient(ctx context.Context, clientID string, input d
 	return client, nil
 }
 
-func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClientUpdateDto) {
+func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClientUpdateDto) error {
 	// Base fields
 	client.Name = input.Name
 	client.CallbackURLs = input.CallbackURLs
@@ -227,6 +231,18 @@ func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClien
 	client.SkipConsent = input.SkipConsent
 	client.LaunchURL = input.LaunchURL
 	client.IsGroupRestricted = input.IsGroupRestricted
+	client.ForwardAuthEnabled = input.ForwardAuthEnabled
+
+	forwardAuthExternalURL, err := normalizeForwardAuthExternalURL(input.ForwardAuthExternalURL)
+	if err != nil {
+		return &common.ValidationError{Message: err.Error()}
+	}
+
+	if input.ForwardAuthEnabled && forwardAuthExternalURL == nil {
+		return &common.ValidationError{Message: "forward auth external URL is required when forward auth is enabled"}
+	}
+
+	client.ForwardAuthExternalURL = forwardAuthExternalURL
 
 	// Credentials
 	client.Credentials.FederatedIdentities = make([]model.OidcClientFederatedIdentity, len(input.Credentials.FederatedIdentities))
@@ -240,6 +256,35 @@ func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClien
 		}
 	}
 
+	return nil
+}
+
+func normalizeForwardAuthExternalURL(raw *string) (*string, error) {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return nil, nil
+	}
+
+	parsedURL, err := url.Parse(strings.TrimSpace(*raw))
+	if err != nil {
+		return nil, fmt.Errorf("forward auth external URL is invalid")
+	}
+
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return nil, fmt.Errorf("forward auth external URL must be absolute")
+	}
+
+	switch strings.ToLower(parsedURL.Scheme) {
+	case "http", "https":
+	default:
+		return nil, fmt.Errorf("forward auth external URL must use http or https")
+	}
+
+	if parsedURL.RawQuery != "" || parsedURL.Fragment != "" {
+		return nil, fmt.Errorf("forward auth external URL cannot include a query string or fragment")
+	}
+
+	normalized := strings.TrimRight(parsedURL.String(), "/")
+	return &normalized, nil
 }
 
 func (s *OidcService) DeleteClient(ctx context.Context, clientID string) error {

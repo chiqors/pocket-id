@@ -1,9 +1,13 @@
+import { browser } from '$app/environment';
 import AppConfigService from '$lib/services/app-config-service';
 import UserService from '$lib/services/user-service';
 import appConfigStore from '$lib/stores/application-configuration-store';
 import userStore from '$lib/stores/user-store';
 import { setLocaleForLibraries } from '$lib/utils/locale.util';
-import { getAuthRedirectPath } from '$lib/utils/redirection-util';
+import {
+	getAuthRedirectPath,
+	shouldUseBrowserNavigationForRedirect
+} from '$lib/utils/redirection-util';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
@@ -26,6 +30,11 @@ export const load: LayoutLoad = async ({ url }) => {
 
 	const redirectPath = getAuthRedirectPath(url, user);
 	if (redirectPath) {
+		if (browser && shouldUseBrowserNavigationForRedirect(redirectPath)) {
+			window.location.assign(redirectPath);
+			return { user, appConfig };
+		}
+
 		redirect(302, redirectPath);
 	}
 

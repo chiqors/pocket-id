@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/pocket-id/pocket-id/backend/internal/apikey"
+	"github.com/pocket-id/pocket-id/backend/internal/forwardauth"
 	"github.com/pocket-id/pocket-id/backend/internal/job"
 	"gorm.io/gorm"
 
@@ -35,10 +36,11 @@ type services struct {
 	appLockService       *service.AppLockService
 	oneTimeAccessService *service.OneTimeAccessService
 
-	apiKeyModule     *apikey.Module
-	oidcModule       *oidc.Module
-	webauthnModule   *webauthn.Module
-	userSignUpModule *usersignup.Module
+	apiKeyModule      *apikey.Module
+	forwardAuthModule *forwardauth.Module
+	oidcModule        *oidc.Module
+	webauthnModule    *webauthn.Module
+	userSignUpModule  *usersignup.Module
 }
 
 // Initializes all services
@@ -101,6 +103,12 @@ func initServices(ctx context.Context, db *gorm.DB, httpClient *http.Client, ima
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC service: %w", err)
 	}
+
+	svc.forwardAuthModule = forwardauth.New(forwardauth.Dependencies{
+		DB:        db,
+		AppConfig: svc.appConfigService,
+		BaseURL:   common.EnvConfig.AppURL,
+	})
 
 	svc.userGroupService = service.NewUserGroupService(db, svc.appConfigService, svc.scimService)
 	svc.userService = service.NewUserService(db, svc.jwtService, svc.auditLogService, svc.emailService, svc.appConfigService, svc.customClaimService, svc.appImagesService, svc.scimService, fileStorage)

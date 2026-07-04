@@ -151,6 +151,7 @@ func registerRoutes(r *gin.Engine, db *gorm.DB, svc *services, rateLimitServices
 	optionalBrowserAuth := authMiddleware.WithAdminNotRequired().WithSuccessOptional().WithApiKeyAuthDisabled().Add()
 	browserAuth := authMiddleware.WithAdminNotRequired().WithApiKeyAuthDisabled().Add()
 	svc.oidcModule.RegisterRoutes(baseGroup, apiGroup, optionalBrowserAuth, browserAuth)
+	svc.forwardAuthModule.RegisterRoutes(baseGroup, apiGroup, browserAuth)
 
 	registerTestRoutes(apiGroup, db, svc)
 

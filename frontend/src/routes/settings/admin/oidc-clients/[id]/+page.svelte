@@ -8,6 +8,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import UserGroupSelection from '$lib/components/user-group-selection.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import OidcService from '$lib/services/oidc-service';
@@ -39,7 +40,7 @@
 	const scimService = new ScimService();
 	const backNavigation = backNavigate('/settings/admin/oidc-clients');
 
-	const setupDetails = $state({
+	const setupDetails = $derived.by(() => ({
 		[m.issuer_url()]: `https://${page.url.host}`,
 		[m.authorization_url()]: `https://${page.url.host}/authorize`,
 		[m.oidc_discovery_url()]: `https://${page.url.host}/.well-known/openid-configuration`,
@@ -51,8 +52,91 @@
 		[m.requires_reauthentication()]: client.requiresReauthentication ? m.enabled() : m.disabled(),
 		[m.requires_pushed_authorization_requests()]: client.requiresPushedAuthorizationRequests
 			? m.enabled()
-			: m.disabled()
-	});
+			: m.disabled(),
+		[m.forward_auth()]: client.forwardAuthEnabled ? m.enabled() : m.disabled(),
+		[m.forward_auth_external_url()]:
+			client.forwardAuthExternalURL || m.forward_auth_external_url_not_configured()
+	}));
+
+	const forwardAuthHeaderNames = [
+		'X-Pocket-Id-User-Id',
+		'X-Pocket-Id-Username',
+		'X-Pocket-Id-Name',
+		'X-Pocket-Id-Display-Name',
+		'X-Pocket-Id-Email',
+		'X-Pocket-Id-Groups',
+		'X-Pocket-Id-Is-Admin',
+		'X-Pocket-Id-Client-Id'
+	];
+
+	function forwardAuthCaddySnippet() {
+		const pocketIdBaseURL = page.url.origin;
+		const clientId = encodeURIComponent(client.id);
+		const copyHeaders = forwardAuthHeaderNames.join(' ');
+
+		return `@pocket_id path /.pocket-id/*
+
+handle @pocket_id {
+\treverse_proxy ${pocketIdBaseURL}
+}
+
+route {
+\tforward_auth ${pocketIdBaseURL} {
+\t\turi /.pocket-id/auth/${clientId}
+\t\tcopy_headers ${copyHeaders}
+\t}
+
+\treverse_proxy 127.0.0.1:3000 {
+\t\theader_up -X-Pocket-Id-User-Id
+\t\theader_up -X-Pocket-Id-Username
+\t\theader_up -X-Pocket-Id-Name
+\t\theader_up -X-Pocket-Id-Display-Name
+\t\theader_up -X-Pocket-Id-Email
+\t\theader_up -X-Pocket-Id-Groups
+\t\theader_up -X-Pocket-Id-Is-Admin
+\t\theader_up -X-Pocket-Id-Client-Id
+\t}
+}`;
+	}
+
+	function forwardAuthTraefikSnippet() {
+		const pocketIdBaseURL = page.url.origin;
+		const clientId = encodeURIComponent(client.id);
+		const headerLines = forwardAuthHeaderNames.map((header) => `          - ${header}`).join('\n');
+
+		return `http:
+  routers:
+    app:
+      rule: Host(\`app.example.com\`)
+      middlewares:
+        - pocket-id-${clientId}
+      service: app
+
+    app-pocket-id:
+      rule: Host(\`app.example.com\`) && PathPrefix(\`/.pocket-id/\`)
+      priority: 100
+      service: pocket-id
+
+  middlewares:
+    pocket-id-${clientId}:
+      forwardAuth:
+        address: ${pocketIdBaseURL}/.pocket-id/auth/${clientId}
+        trustForwardHeader: true
+        preserveLocationHeader: true
+        authResponseHeaders:
+${headerLines}
+
+  services:
+    pocket-id:
+      loadBalancer:
+        servers:
+          - url: ${pocketIdBaseURL}
+
+    app:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:3000`;
+	}
 
 	async function updateClient(updatedClient: OidcClientCreateWithLogo) {
 		let success = true;
@@ -67,16 +151,8 @@
 				? oidcService.updateClientLogo(client, updatedClient.darkLogo, false)
 				: Promise.resolve();
 
-		client.isPublic = updatedClient.isPublic;
-		setupDetails[m.pkce()] = updatedClient.pkceEnabled ? m.enabled() : m.disabled();
-		setupDetails[m.requires_reauthentication()] = updatedClient.requiresReauthentication
-			? m.enabled()
-			: m.disabled();
-
 		await Promise.all([dataPromise, imagePromise, darkImagePromise])
-			.then(() => {
-				setupDetails[m.requires_pushed_authorization_requests()] =
-					updatedClient.requiresPushedAuthorizationRequests ? m.enabled() : m.disabled();
+			.then(([updated]) => {
 				if (updatedClient.logoUrl) {
 					cachedOidcClientLogo.bustCache(client.id, true);
 				}
@@ -84,15 +160,14 @@
 					cachedOidcClientLogo.bustCache(client.id, false);
 				}
 
+				Object.assign(client, updated);
+
 				// Update the hasLogo and hasDarkLogo flags after successful upload
 				if (updatedClient.logo !== undefined || updatedClient.logoUrl !== undefined) {
 					client.hasLogo = updatedClient.logo !== null || !!updatedClient.logoUrl;
 				}
 				if (updatedClient.darkLogo !== undefined || updatedClient.darkLogoUrl !== undefined) {
 					client.hasDarkLogo = updatedClient.darkLogo !== null || !!updatedClient.darkLogoUrl;
-				}
-				if (updatedClient.pkceEnabled) {
-					client.pkceEnabled = updatedClient.pkceEnabled;
 				}
 				toast.success(m.oidc_client_updated_successfully());
 			})
@@ -294,6 +369,34 @@
 		<OidcForm mode="update" existingClient={client} callback={updateClient} />
 	</Card.Content>
 </Card.Root>
+{#if client.forwardAuthEnabled && client.forwardAuthExternalURL}
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>{m.forward_auth_setup()}</Card.Title>
+			<Card.Description>{m.forward_auth_setup_description()}</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<Tabs.Root value="caddy">
+				<Tabs.List class="grid w-full grid-cols-2">
+					<Tabs.Trigger value="caddy">Caddy</Tabs.Trigger>
+					<Tabs.Trigger value="traefik">Traefik</Tabs.Trigger>
+				</Tabs.List>
+				<Tabs.Content value="caddy" class="mt-4">
+					<CopyToClipboard value={forwardAuthCaddySnippet()}>
+						<pre class="bg-muted overflow-x-auto rounded-md p-4 text-xs">
+{forwardAuthCaddySnippet()}</pre>
+					</CopyToClipboard>
+				</Tabs.Content>
+				<Tabs.Content value="traefik" class="mt-4">
+					<CopyToClipboard value={forwardAuthTraefikSnippet()}>
+						<pre class="bg-muted overflow-x-auto rounded-md p-4 text-xs">
+{forwardAuthTraefikSnippet()}</pre>
+					</CopyToClipboard>
+				</Tabs.Content>
+			</Tabs.Root>
+		</Card.Content>
+	</Card.Root>
+{/if}
 <CollapsibleCard
 	id="allowed-user-groups"
 	title={m.allowed_user_groups()}

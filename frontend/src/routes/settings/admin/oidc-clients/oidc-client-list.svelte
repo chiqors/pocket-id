@@ -67,6 +67,13 @@
 			filterableValues: booleanFilterValues
 		},
 		{
+			label: m.forward_auth(),
+			column: 'forwardAuthEnabled',
+			sortable: true,
+			hidden: true,
+			filterableValues: booleanFilterValues
+		},
+		{
 			label: m.client_launch_url(),
 			column: 'launchURL',
 			hidden: true
