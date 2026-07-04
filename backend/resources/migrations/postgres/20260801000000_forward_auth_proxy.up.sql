@@ -6,11 +6,11 @@ ALTER TABLE oidc_clients
 
 CREATE TABLE forward_auth_sessions
 (
-    id         TEXT PRIMARY KEY,
+    id         UUID PRIMARY KEY,
     created_at TIMESTAMPTZ NOT NULL,
     token      TEXT        NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
-    user_id    TEXT        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    user_id    UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     client_id  TEXT        NOT NULL REFERENCES oidc_clients (id) ON DELETE CASCADE
 );
 
@@ -19,12 +19,12 @@ CREATE INDEX idx_forward_auth_sessions_expires_at ON forward_auth_sessions (expi
 
 CREATE TABLE forward_auth_login_tokens
 (
-    id         TEXT PRIMARY KEY,
+    id         UUID PRIMARY KEY,
     created_at TIMESTAMPTZ NOT NULL,
     token      TEXT        NOT NULL,
     return_to  TEXT        NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
-    user_id    TEXT REFERENCES users (id) ON DELETE CASCADE,
+    user_id    UUID REFERENCES users (id) ON DELETE CASCADE,
     client_id  TEXT        NOT NULL REFERENCES oidc_clients (id) ON DELETE CASCADE
 );
 
