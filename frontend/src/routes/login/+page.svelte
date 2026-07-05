@@ -27,10 +27,12 @@
 	const webauthnService = new WebAuthnService();
 
 	let isLoading = $state(false);
+	let success = $state(false);
 	let error: string | undefined = $state(undefined);
 
 	async function authenticate() {
 		error = undefined;
+		success = false;
 		isLoading = true;
 		try {
 			const loginOptions = await webauthnService.getLoginOptions();
@@ -38,12 +40,15 @@
 			const user = await webauthnService.finishLogin(authResponse);
 
 			await userStore.setUser(user);
+			success = true;
+			await new Promise((resolve) => setTimeout(resolve, data.client ? 800 : 300));
 			if (shouldUseBrowserNavigationForRedirect(data.redirect || '/settings')) {
 				window.location.assign(data.redirect || '/settings');
 			} else {
 				goto(data.redirect || '/settings');
 			}
 		} catch (e) {
+			success = false;
 			error = getWebauthnErrorMessage(e);
 		}
 		isLoading = false;
@@ -57,9 +62,9 @@
 <SignInWrapper showAlternativeSignInMethodButton>
 	<div class="flex justify-center">
 		{#if data.client}
-			<ClientProviderImages client={data.client} error={!!error} />
+			<ClientProviderImages client={data.client} {success} error={!!error} />
 		{:else}
-			<LoginLogoErrorSuccessIndicator error={!!error} />
+			<LoginLogoErrorSuccessIndicator {success} error={!!error} />
 		{/if}
 	</div>
 	<h1 class="font-gloock mt-5 text-3xl font-bold sm:text-4xl">
