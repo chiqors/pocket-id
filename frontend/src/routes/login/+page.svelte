@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import FormattedMessage from '$lib/components/formatted-message.svelte';
 	import SignInWrapper from '$lib/components/login-wrapper.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
@@ -74,10 +75,12 @@
 		</p>
 	{:else if data.client}
 		<p class="text-muted-foreground mt-2" in:fade>
-			{m.do_you_want_to_sign_in_to_client_with_your_app_name_account({
-				client: data.client.name,
-				appName: $appConfigStore.appName
-			})}
+			<FormattedMessage
+				m={m.do_you_want_to_sign_in_to_client_with_your_app_name_account({
+					client: data.client.name,
+					appName: $appConfigStore.appName
+				})}
+			/>
 		</p>
 	{:else}
 		<p class="text-muted-foreground mt-2" in:fade>
