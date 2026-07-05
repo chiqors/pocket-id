@@ -231,6 +231,17 @@ func (s *Service) deleteProxySession(ctx context.Context, clientID, rawToken str
 		Error
 }
 
+func (s *Service) revokeUserProxySessions(ctx context.Context, userID string) error {
+	if strings.TrimSpace(userID) == "" {
+		return nil
+	}
+
+	return s.db.
+		WithContext(ctx).
+		Delete(&Session{}, "user_id = ?", userID).
+		Error
+}
+
 func (s *Service) loginRedirectURL(clientID, loginToken string) string {
 	target := url.URL{
 		Path: path.Join("/api/forward-auth/complete", url.PathEscape(clientID)),

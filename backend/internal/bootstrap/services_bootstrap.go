@@ -69,12 +69,18 @@ func initServices(ctx context.Context, db *gorm.DB, httpClient *http.Client, ima
 	}
 
 	svc.customClaimService = service.NewCustomClaimService(db)
-	svc.webauthnModule, err = webauthn.New(webauthn.Dependencies{
+	svc.forwardAuthModule = forwardauth.New(forwardauth.Dependencies{
 		DB:        db,
-		AppURL:    common.EnvConfig.AppURL,
-		Signer:    svc.jwtService,
-		AuditLog:  svc.auditLogService,
 		AppConfig: svc.appConfigService,
+		BaseURL:   common.EnvConfig.AppURL,
+	})
+	svc.webauthnModule, err = webauthn.New(webauthn.Dependencies{
+		DB:                        db,
+		AppURL:                    common.EnvConfig.AppURL,
+		Signer:                    svc.jwtService,
+		AuditLog:                  svc.auditLogService,
+		AppConfig:                 svc.appConfigService,
+		ForwardAuthSessionRevoker: svc.forwardAuthModule,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WebAuthn module: %w", err)
@@ -103,12 +109,6 @@ func initServices(ctx context.Context, db *gorm.DB, httpClient *http.Client, ima
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC service: %w", err)
 	}
-
-	svc.forwardAuthModule = forwardauth.New(forwardauth.Dependencies{
-		DB:        db,
-		AppConfig: svc.appConfigService,
-		BaseURL:   common.EnvConfig.AppURL,
-	})
 
 	svc.userGroupService = service.NewUserGroupService(db, svc.appConfigService, svc.scimService)
 	svc.userService = service.NewUserService(db, svc.jwtService, svc.auditLogService, svc.emailService, svc.appConfigService, svc.customClaimService, svc.appImagesService, svc.scimService, fileStorage)

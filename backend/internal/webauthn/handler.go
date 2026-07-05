@@ -12,12 +12,17 @@ import (
 )
 
 type handler struct {
-	service   *Service
-	appConfig AppConfigProvider
+	service                   *Service
+	appConfig                 AppConfigProvider
+	forwardAuthSessionRevoker ForwardAuthSessionRevoker
 }
 
-func newHandler(service *Service, appConfig AppConfigProvider) *handler {
-	return &handler{service: service, appConfig: appConfig}
+func newHandler(service *Service, appConfig AppConfigProvider, forwardAuthSessionRevoker ForwardAuthSessionRevoker) *handler {
+	return &handler{
+		service:                   service,
+		appConfig:                 appConfig,
+		forwardAuthSessionRevoker: forwardAuthSessionRevoker,
+	}
 }
 
 func (h *handler) beginRegistration(c *gin.Context) {
@@ -155,8 +160,15 @@ func (h *handler) updateCredential(c *gin.Context) {
 }
 
 func (h *handler) logout(c *gin.Context) {
-	cookie.AddAccessTokenCookie(c, 0, "")
+	if h.forwardAuthSessionRevoker != nil {
+		if err := h.forwardAuthSessionRevoker.RevokeUserProxySessions(c.Request.Context(), c.GetString("userID")); err != nil {
+			_ = c.Error(err)
+			return
+		}
+	}
+
 	c.Status(http.StatusNoContent)
+	cookie.AddAccessTokenCookie(c, 0, "")
 }
 
 func (h *handler) reauthenticate(c *gin.Context) {

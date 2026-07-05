@@ -1,6 +1,8 @@
 package forwardauth
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pocket-id/pocket-id/backend/internal/model"
 	"gorm.io/gorm"
@@ -41,4 +43,8 @@ func (m *Module) RegisterRoutes(rootGroup *gin.RouterGroup, apiGroup *gin.Router
 
 func (m *Module) ProxyMiddleware() gin.HandlerFunc {
 	return m.handler.proxyMiddleware()
+}
+
+func (m *Module) RevokeUserProxySessions(ctx context.Context, userID string) error {
+	return m.service.revokeUserProxySessions(ctx, userID)
 }

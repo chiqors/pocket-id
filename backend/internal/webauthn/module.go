@@ -26,13 +26,18 @@ type AppConfigProvider interface {
 	GetDbConfig() *model.AppConfig
 }
 
+type ForwardAuthSessionRevoker interface {
+	RevokeUserProxySessions(ctx context.Context, userID string) error
+}
+
 type Dependencies struct {
 	DB     *gorm.DB
 	AppURL string
 
-	Signer    TokenService
-	AuditLog  AuditLogger
-	AppConfig AppConfigProvider
+	Signer                    TokenService
+	AuditLog                  AuditLogger
+	AppConfig                 AppConfigProvider
+	ForwardAuthSessionRevoker ForwardAuthSessionRevoker
 }
 
 type Module struct {
@@ -48,7 +53,7 @@ func New(deps Dependencies) (*Module, error) {
 
 	return &Module{
 		service: service,
-		handler: newHandler(service, deps.AppConfig),
+		handler: newHandler(service, deps.AppConfig, deps.ForwardAuthSessionRevoker),
 	}, nil
 }
 

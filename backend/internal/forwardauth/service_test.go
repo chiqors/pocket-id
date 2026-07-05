@@ -184,6 +184,29 @@ func TestCleanupExpiredSessionsAndLoginTokens(t *testing.T) {
 	require.Equal(t, []string{"active-login"}, loginTokenIDs)
 }
 
+func TestService_revokeUserProxySessions(t *testing.T) {
+	service, client, user := newTestService(t)
+
+	otherUser := model.User{
+		Base:      model.Base{ID: "user-2"},
+		Username:  "bob",
+		FirstName: "Bob",
+	}
+	require.NoError(t, service.db.Create(&otherUser).Error)
+
+	_, _, err := service.createProxySession(t.Context(), client.ID, user.ID)
+	require.NoError(t, err)
+	_, _, err = service.createProxySession(t.Context(), client.ID, otherUser.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, service.revokeUserProxySessions(t.Context(), user.ID))
+
+	var remaining []Session
+	require.NoError(t, service.db.Order("user_id").Find(&remaining).Error)
+	require.Len(t, remaining, 1)
+	require.Equal(t, otherUser.ID, remaining[0].UserID)
+}
+
 func stringPtr(value string) *string {
 	return &value
 }
