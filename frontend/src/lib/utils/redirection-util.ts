@@ -8,6 +8,10 @@ export function shouldUseBrowserNavigationForRedirect(redirect: string) {
 	return redirect.startsWith('/api/forward-auth/complete/');
 }
 
+function isForwardAuthCompletionPath(redirect: string | null) {
+	return !!redirect && redirect.startsWith('/api/forward-auth/complete/');
+}
+
 // Returns the path to redirect to based on the current path and user authentication status
 // If no redirect is needed, it returns null
 export function getAuthRedirectPath(url: URL, user: User | null) {
@@ -44,6 +48,10 @@ export function getAuthRedirectPath(url: URL, user: User | null) {
 
 	if (isUnauthenticatedOnlyPath && isSignedIn) {
 		const requestedRedirect = url.searchParams.get('redirect');
+		if (path === '/login' && isForwardAuthCompletionPath(requestedRedirect)) {
+			return null;
+		}
+
 		if (isSafeInternalRedirectPath(requestedRedirect)) {
 			return requestedRedirect;
 		}
