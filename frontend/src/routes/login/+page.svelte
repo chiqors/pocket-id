@@ -178,18 +178,14 @@
 		</div>
 	{/if}
 	<div class="mt-10 flex justify-center gap-3 w-full max-w-[450px]">
-		{#if showForwardAuthConsent}
-			<Button class="w-[50%]" variant="secondary" href={document.referrer || '/'}>
-				{m.cancel()}
-			</Button>
-		{:else if $appConfigStore.allowUserSignups === 'open' && !data.client}
+		{#if $appConfigStore.allowUserSignups === 'open' && !data.client}
 			<Button class="w-[50%]" variant="secondary" href="/signup">
 				{m.signup()}
 			</Button>
 		{/if}
 		<Button
 			class={showForwardAuthConsent
-				? 'w-[50%]'
+				? 'w-[80%] sm:w-[40%]'
 				: $appConfigStore.allowUserSignups === 'open' && !data.client
 				? 'w-[50%]'
 				: 'w-[80%] sm:w-[40%]'}
