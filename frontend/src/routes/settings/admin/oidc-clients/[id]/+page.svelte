@@ -306,7 +306,7 @@
 		<Card.Header>
 			<Card.Title>{m.forward_auth_setup()}</Card.Title>
 			<Card.Description>
-				When an upstream URL is configured, Pocket ID can act as a proxy provider directly from the protected host without an extra sidecar proxy.
+				When an upstream URL is configured, Pocket ID can act as a proxy provider directly from the protected host without an extra sidecar proxy. The existing Skip Consent Screen setting also controls whether users see a forward-auth confirmation step before Pocket ID continues to the protected app.
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
@@ -317,8 +317,10 @@
 					{client.forwardAuthUpstreamURL || 'Not configured. Pocket ID will only expose the login endpoints until an upstream URL is set.'}
 				</p>
 				<p>
-					Pocket ID will inject these identity headers to the upstream:
-					{forwardAuthHeaderNames.join(', ')}
+					Pocket ID identity headers:
+					{client.forwardAuthInjectIdentityHeaders
+						? forwardAuthHeaderNames.join(', ')
+						: 'Disabled'}
 				</p>
 				<p>
 					Custom upstream headers:

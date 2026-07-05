@@ -217,6 +217,74 @@ func TestProxyProviderFlow(t *testing.T) {
 	require.Equal(t, "/base/dashboard\nview=full\nuser-1\nalice\nalice@example.com\nBearer internal-token\nsuper-secret\napp.example.com\nhttps\n/app/dashboard?view=full", strings.TrimSpace(proxyRecorder.Body.String()))
 }
 
+func TestProxyProviderFlowWithoutInjectedIdentityHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service, client, user := newTestService(t)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.WriteString(w, strings.Join([]string{
+			r.Header.Get("X-Pocket-Id-User-Id"),
+			r.Header.Get("X-Pocket-Id-Username"),
+			r.Header.Get("Authorization"),
+			r.Header.Get("X-Api-Key"),
+		}, "\n"))
+	}))
+	defer upstream.Close()
+
+	require.NoError(t, service.db.Model(&model.OidcClient{}).Where("id = ?", client.ID).
+		Updates(map[string]any{
+			"forward_auth_upstream_url":            upstream.URL,
+			"forward_auth_inject_identity_headers": false,
+			"forward_auth_upstream_headers": model.HTTPHeaderList{
+				{Name: "Authorization", Value: "Bearer internal-token"},
+				{Name: "X-Api-Key", Value: "super-secret"},
+			},
+		}).Error)
+
+	client, err := service.getClient(t.Context(), client.ID)
+	require.NoError(t, err)
+
+	router := newTestRouter(service, user.ID)
+
+	loginToken, err := service.createLoginToken(t.Context(), client.ID, "https://app.example.com/app/dashboard")
+	require.NoError(t, err)
+	require.NoError(t, service.markLoginTokenAuthenticated(t.Context(), client.ID, loginToken, user.ID))
+
+	callbackRecorder := doForwardAuthRequest(t, router, requestSpec{
+		method: http.MethodGet,
+		target: "/.pocket-id/callback/" + client.ID + "?token=" + url.QueryEscape(loginToken),
+		host:   "app.example.com",
+		proto:  "https",
+	})
+	require.Equal(t, http.StatusFound, callbackRecorder.Code)
+	sessionCookie := findCookie(t, callbackRecorder.Result().Cookies(), "__Host-pid-fa-")
+
+	authorizeRecorder := doForwardAuthRequest(t, router, requestSpec{
+		method: http.MethodGet,
+		target: "/.pocket-id/auth/" + client.ID,
+		host:   "app.example.com",
+		proto:  "https",
+		cookie: sessionCookie,
+		headers: map[string]string{
+			"X-Forwarded-Uri": "/app/dashboard",
+		},
+	})
+	require.Equal(t, http.StatusNoContent, authorizeRecorder.Code)
+	require.Empty(t, authorizeRecorder.Header().Get("X-Pocket-Id-User-Id"))
+	require.Empty(t, authorizeRecorder.Header().Get("X-Pocket-Id-Username"))
+
+	proxyRecorder := doForwardAuthRequest(t, router, requestSpec{
+		method: http.MethodGet,
+		target: "/app/dashboard",
+		host:   "app.example.com",
+		proto:  "https",
+		cookie: sessionCookie,
+	})
+	require.Equal(t, http.StatusOK, proxyRecorder.Code)
+	require.Equal(t, "Bearer internal-token\nsuper-secret", strings.TrimSpace(proxyRecorder.Body.String()))
+}
+
 type requestSpec struct {
 	method  string
 	target  string

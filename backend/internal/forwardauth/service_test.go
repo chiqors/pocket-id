@@ -110,13 +110,14 @@ func newTestService(t *testing.T) (*Service, model.OidcClient, model.User) {
 	externalURL := "https://app.example.com/app"
 	upstreamURL := "http://upstream.example.internal/base"
 	client := model.OidcClient{
-		Base:                   model.Base{ID: "client-1"},
-		Name:                   "Protected App",
-		CallbackURLs:           model.UrlList{"https://pocket-id.example.com/callback"},
-		IsGroupRestricted:      true,
-		ForwardAuthEnabled:     true,
-		ForwardAuthExternalURL: &externalURL,
-		ForwardAuthUpstreamURL: &upstreamURL,
+		Base:                             model.Base{ID: "client-1"},
+		Name:                             "Protected App",
+		CallbackURLs:                     model.UrlList{"https://pocket-id.example.com/callback"},
+		IsGroupRestricted:                true,
+		ForwardAuthEnabled:               true,
+		ForwardAuthExternalURL:           &externalURL,
+		ForwardAuthUpstreamURL:           &upstreamURL,
+		ForwardAuthInjectIdentityHeaders: true,
 	}
 	require.NoError(t, db.Create(&client).Error)
 	require.NoError(t, db.Model(&client).Association("AllowedUserGroups").Append(&group))
@@ -139,11 +140,12 @@ func TestCleanupExpiredSessionsAndLoginTokens(t *testing.T) {
 
 	externalURL := "https://app.example.com/app"
 	client := model.OidcClient{
-		Base:                   model.Base{ID: "client-1"},
-		Name:                   "Protected App",
-		CallbackURLs:           model.UrlList{"https://pocket-id.example.com/callback"},
-		ForwardAuthEnabled:     true,
-		ForwardAuthExternalURL: &externalURL,
+		Base:                             model.Base{ID: "client-1"},
+		Name:                             "Protected App",
+		CallbackURLs:                     model.UrlList{"https://pocket-id.example.com/callback"},
+		ForwardAuthEnabled:               true,
+		ForwardAuthExternalURL:           &externalURL,
+		ForwardAuthInjectIdentityHeaders: true,
 	}
 	require.NoError(t, db.Create(&client).Error)
 

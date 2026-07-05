@@ -58,6 +58,8 @@
 		forwardAuthEnabled: existingClient?.forwardAuthEnabled || false,
 		forwardAuthExternalURL: existingClient?.forwardAuthExternalURL || '',
 		forwardAuthUpstreamURL: existingClient?.forwardAuthUpstreamURL || '',
+		forwardAuthInjectIdentityHeaders:
+			existingClient?.forwardAuthInjectIdentityHeaders ?? true,
 		forwardAuthUpstreamHeaders: existingClient?.forwardAuthUpstreamHeaders || [],
 		credentials: {
 			federatedIdentities: existingClient?.credentials?.federatedIdentities || []
@@ -91,6 +93,7 @@
 			forwardAuthEnabled: z.boolean(),
 			forwardAuthExternalURL: optionalUrl,
 			forwardAuthUpstreamURL: optionalUrl,
+			forwardAuthInjectIdentityHeaders: z.boolean(),
 			forwardAuthUpstreamHeaders: z.array(
 				z.object({
 					name: z.string(),
@@ -280,6 +283,15 @@
 								bind:input={$inputs.forwardAuthUpstreamURL}
 							/>
 						</div>
+						<SwitchWithLabel
+							id="forward-auth-inject-identity-headers"
+							label="Inject Pocket ID Identity Headers"
+							description="When enabled, Pocket ID adds X-Pocket-Id-* headers to the upstream request. Disable this if the legacy app should only receive your custom upstream headers."
+							bind:checked={$inputs.forwardAuthInjectIdentityHeaders.value}
+						/>
+						<p class="text-muted-foreground text-sm">
+							The existing "Skip Consent Screen" toggle also controls the forward-auth confirmation step. Disable "Skip Consent Screen" if you want users to confirm before Pocket ID continues to the protected app.
+						</p>
 						<div class="grid gap-4 rounded-lg border border-border/60 p-4">
 							<div class="flex flex-wrap items-start justify-between gap-3">
 								<div class="max-w-2xl">

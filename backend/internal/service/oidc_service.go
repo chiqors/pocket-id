@@ -234,6 +234,7 @@ func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClien
 	client.LaunchURL = input.LaunchURL
 	client.IsGroupRestricted = input.IsGroupRestricted
 	client.ForwardAuthEnabled = input.ForwardAuthEnabled
+	client.ForwardAuthInjectIdentityHeaders = input.ForwardAuthInjectIdentityHeaders
 
 	forwardAuthExternalURL, err := normalizeForwardAuthExternalURL(input.ForwardAuthExternalURL)
 	if err != nil {

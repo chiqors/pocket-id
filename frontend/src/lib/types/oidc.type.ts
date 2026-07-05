@@ -6,6 +6,7 @@ export type OidcClientMetaData = {
 	hasLogo: boolean;
 	hasDarkLogo: boolean;
 	requiresReauthentication: boolean;
+	skipConsent: boolean;
 	launchURL?: string;
 };
 
@@ -41,6 +42,7 @@ export type OidcClient = OidcClientMetaData & {
 	forwardAuthEnabled: boolean;
 	forwardAuthExternalURL?: string;
 	forwardAuthUpstreamURL?: string;
+	forwardAuthInjectIdentityHeaders: boolean;
 	forwardAuthUpstreamHeaders: HTTPHeader[];
 };
 

@@ -112,10 +112,11 @@ func TestUpdateOIDCClientModelFromDtoStoresForwardAuthFields(t *testing.T) {
 	client := model.OidcClient{}
 
 	err := updateOIDCClientModelFromDto(&client, &dto.OidcClientUpdateDto{
-		Name:                   "Protected App",
-		ForwardAuthEnabled:     true,
-		ForwardAuthExternalURL: stringPtr("https://app.example.com/protected/"),
-		ForwardAuthUpstreamURL: stringPtr("http://nginx.nginx.svc.cluster.local:80/"),
+		Name:                             "Protected App",
+		ForwardAuthEnabled:               true,
+		ForwardAuthExternalURL:           stringPtr("https://app.example.com/protected/"),
+		ForwardAuthUpstreamURL:           stringPtr("http://nginx.nginx.svc.cluster.local:80/"),
+		ForwardAuthInjectIdentityHeaders: true,
 		ForwardAuthUpstreamHeaders: []dto.HTTPHeaderDto{
 			{Name: "X-API-Key", Value: "super-secret"},
 			{Name: "Authorization", Value: "Bearer internal-token"},
@@ -127,6 +128,7 @@ func TestUpdateOIDCClientModelFromDtoStoresForwardAuthFields(t *testing.T) {
 	require.Equal(t, "https://app.example.com/protected", *client.ForwardAuthExternalURL)
 	require.NotNil(t, client.ForwardAuthUpstreamURL)
 	require.Equal(t, "http://nginx.nginx.svc.cluster.local:80", *client.ForwardAuthUpstreamURL)
+	require.True(t, client.ForwardAuthInjectIdentityHeaders)
 	require.Equal(t, model.HTTPHeaderList{
 		{Name: "X-Api-Key", Value: "super-secret"},
 		{Name: "Authorization", Value: "Bearer internal-token"},

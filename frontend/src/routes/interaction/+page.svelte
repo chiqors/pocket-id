@@ -100,7 +100,7 @@
 
 		if (result.redirectUrl && !skipRedirect) {
 			success = true;
-			await new Promise((r) => setTimeout(r, 800));
+			await new Promise((r) => setTimeout(r, 1400));
 			window.location.href = result.redirectUrl;
 		}
 	}

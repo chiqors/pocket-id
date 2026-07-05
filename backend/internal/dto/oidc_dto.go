@@ -9,6 +9,7 @@ type OidcClientMetaDataDto struct {
 	HasDarkLogo              bool    `json:"hasDarkLogo"`
 	LaunchURL                *string `json:"launchURL"`
 	RequiresReauthentication bool    `json:"requiresReauthentication"`
+	SkipConsent              bool    `json:"skipConsent"`
 }
 
 type OidcClientDto struct {
@@ -25,6 +26,7 @@ type OidcClientDto struct {
 	ForwardAuthEnabled                  bool                     `json:"forwardAuthEnabled"`
 	ForwardAuthExternalURL              *string                  `json:"forwardAuthExternalURL"`
 	ForwardAuthUpstreamURL              *string                  `json:"forwardAuthUpstreamURL"`
+	ForwardAuthInjectIdentityHeaders    bool                     `json:"forwardAuthInjectIdentityHeaders"`
 	ForwardAuthUpstreamHeaders          []HTTPHeaderDto          `json:"forwardAuthUpstreamHeaders"`
 }
 
@@ -57,6 +59,7 @@ type OidcClientUpdateDto struct {
 	ForwardAuthEnabled                  bool                     `json:"forwardAuthEnabled"`
 	ForwardAuthExternalURL              *string                  `json:"forwardAuthExternalURL" binding:"omitempty,url"`
 	ForwardAuthUpstreamURL              *string                  `json:"forwardAuthUpstreamURL" binding:"omitempty,url"`
+	ForwardAuthInjectIdentityHeaders    bool                     `json:"forwardAuthInjectIdentityHeaders"`
 	ForwardAuthUpstreamHeaders          []HTTPHeaderDto          `json:"forwardAuthUpstreamHeaders"`
 }
 

@@ -40,6 +40,7 @@ type OidcClient struct {
 	ForwardAuthEnabled                  bool `sortable:"true" filterable:"true"`
 	ForwardAuthExternalURL              *string
 	ForwardAuthUpstreamURL              *string
+	ForwardAuthInjectIdentityHeaders    bool
 	ForwardAuthUpstreamHeaders          HTTPHeaderList
 
 	AllowedUserGroups         []UserGroup `gorm:"many2many:oidc_clients_allowed_user_groups;"`

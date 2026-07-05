@@ -61,7 +61,7 @@ func (h *handler) authorize(c *gin.Context) {
 	user, err := h.service.validateProxySession(c.Request.Context(), client, rawToken)
 	switch {
 	case err == nil:
-		writeIdentityHeaders(c, user, client.ID)
+		writeIdentityHeaders(c, user, client)
 		c.Status(http.StatusNoContent)
 		return
 	case errors.Is(err, errProxySessionNotFound):
@@ -406,7 +406,7 @@ func (h *handler) proxyUpstream(c *gin.Context, client model.OidcClient, user mo
 		req.Out.Header.Set("X-Forwarded-Proto", currentURL.Scheme)
 		req.Out.Header.Set("X-Forwarded-Uri", currentURL.RequestURI())
 		req.Out.Header.Set("X-Forwarded-For", clientIP(c.Request))
-		applyIdentityHeaders(req.Out.Header, user, client.ID)
+		applyIdentityHeaders(req.Out.Header, user, client)
 		applyCustomUpstreamHeaders(req.Out.Header, client.ForwardAuthUpstreamHeaders)
 	}
 
@@ -464,11 +464,15 @@ func sessionCookieSpec(client model.OidcClient) (string, bool, error) {
 	return "pid-fa-" + suffix, false, nil
 }
 
-func writeIdentityHeaders(c *gin.Context, user model.User, clientID string) {
-	applyIdentityHeaders(c.Writer.Header(), user, clientID)
+func writeIdentityHeaders(c *gin.Context, user model.User, client model.OidcClient) {
+	applyIdentityHeaders(c.Writer.Header(), user, client)
 }
 
-func applyIdentityHeaders(header http.Header, user model.User, clientID string) {
+func applyIdentityHeaders(header http.Header, user model.User, client model.OidcClient) {
+	if !client.ForwardAuthInjectIdentityHeaders {
+		return
+	}
+
 	groups := make([]string, len(user.UserGroups))
 	for i, group := range user.UserGroups {
 		groups[i] = group.Name
@@ -485,7 +489,7 @@ func applyIdentityHeaders(header http.Header, user model.User, clientID string) 
 	header.Set("X-Pocket-Id-Name", user.FullName())
 	header.Set("X-Pocket-Id-Display-Name", displayName)
 	header.Set("X-Pocket-Id-Is-Admin", strconv.FormatBool(user.IsAdmin))
-	header.Set("X-Pocket-Id-Client-Id", clientID)
+	header.Set("X-Pocket-Id-Client-Id", client.ID)
 	header.Set("X-Pocket-Id-Groups", strings.Join(groups, ","))
 	if user.Email != nil && *user.Email != "" {
 		header.Set("X-Pocket-Id-Email", *user.Email)
