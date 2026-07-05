@@ -157,6 +157,8 @@ func TestProxyProviderFlow(t *testing.T) {
 			r.Header.Get("X-Pocket-Id-User-Id"),
 			r.Header.Get("X-Pocket-Id-Username"),
 			r.Header.Get("X-Pocket-Id-Email"),
+			r.Header.Get("Authorization"),
+			r.Header.Get("X-Api-Key"),
 			r.Header.Get("X-Forwarded-Host"),
 			r.Header.Get("X-Forwarded-Proto"),
 			r.Header.Get("X-Forwarded-Uri"),
@@ -165,7 +167,13 @@ func TestProxyProviderFlow(t *testing.T) {
 	defer upstream.Close()
 
 	require.NoError(t, service.db.Model(&model.OidcClient{}).Where("id = ?", client.ID).
-		Update("forward_auth_upstream_url", upstream.URL+"/base").Error)
+		Updates(map[string]any{
+			"forward_auth_upstream_url": upstream.URL + "/base",
+			"forward_auth_upstream_headers": model.HTTPHeaderList{
+				{Name: "Authorization", Value: "Bearer internal-token"},
+				{Name: "X-Api-Key", Value: "super-secret"},
+			},
+		}).Error)
 
 	client, err := service.getClient(t.Context(), client.ID)
 	require.NoError(t, err)
@@ -200,9 +208,13 @@ func TestProxyProviderFlow(t *testing.T) {
 		host:   "app.example.com",
 		proto:  "https",
 		cookie: sessionCookie,
+		headers: map[string]string{
+			"Authorization": "Bearer spoofed",
+			"X-Api-Key":     "spoofed-secret",
+		},
 	})
 	require.Equal(t, http.StatusOK, proxyRecorder.Code)
-	require.Equal(t, "/base/dashboard\nview=full\nuser-1\nalice\nalice@example.com\napp.example.com\nhttps\n/app/dashboard?view=full", strings.TrimSpace(proxyRecorder.Body.String()))
+	require.Equal(t, "/base/dashboard\nview=full\nuser-1\nalice\nalice@example.com\nBearer internal-token\nsuper-secret\napp.example.com\nhttps\n/app/dashboard?view=full", strings.TrimSpace(proxyRecorder.Body.String()))
 }
 
 type requestSpec struct {

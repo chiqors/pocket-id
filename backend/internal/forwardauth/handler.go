@@ -407,6 +407,7 @@ func (h *handler) proxyUpstream(c *gin.Context, client model.OidcClient, user mo
 		req.Out.Header.Set("X-Forwarded-Uri", currentURL.RequestURI())
 		req.Out.Header.Set("X-Forwarded-For", clientIP(c.Request))
 		applyIdentityHeaders(req.Out.Header, user, client.ID)
+		applyCustomUpstreamHeaders(req.Out.Header, client.ForwardAuthUpstreamHeaders)
 	}
 
 	proxy := &httputil.ReverseProxy{
@@ -488,6 +489,15 @@ func applyIdentityHeaders(header http.Header, user model.User, clientID string) 
 	header.Set("X-Pocket-Id-Groups", strings.Join(groups, ","))
 	if user.Email != nil && *user.Email != "" {
 		header.Set("X-Pocket-Id-Email", *user.Email)
+	}
+}
+
+func applyCustomUpstreamHeaders(header http.Header, customHeaders model.HTTPHeaderList) {
+	for _, item := range customHeaders {
+		if strings.TrimSpace(item.Name) == "" {
+			continue
+		}
+		header.Set(item.Name, item.Value)
 	}
 }
 

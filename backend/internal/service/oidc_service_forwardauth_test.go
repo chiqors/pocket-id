@@ -116,6 +116,10 @@ func TestUpdateOIDCClientModelFromDtoStoresForwardAuthFields(t *testing.T) {
 		ForwardAuthEnabled:     true,
 		ForwardAuthExternalURL: stringPtr("https://app.example.com/protected/"),
 		ForwardAuthUpstreamURL: stringPtr("http://nginx.nginx.svc.cluster.local:80/"),
+		ForwardAuthUpstreamHeaders: []dto.HTTPHeaderDto{
+			{Name: "X-API-Key", Value: "super-secret"},
+			{Name: "Authorization", Value: "Bearer internal-token"},
+		},
 	})
 	require.NoError(t, err)
 	require.True(t, client.ForwardAuthEnabled)
@@ -123,6 +127,24 @@ func TestUpdateOIDCClientModelFromDtoStoresForwardAuthFields(t *testing.T) {
 	require.Equal(t, "https://app.example.com/protected", *client.ForwardAuthExternalURL)
 	require.NotNil(t, client.ForwardAuthUpstreamURL)
 	require.Equal(t, "http://nginx.nginx.svc.cluster.local:80", *client.ForwardAuthUpstreamURL)
+	require.Equal(t, model.HTTPHeaderList{
+		{Name: "X-Api-Key", Value: "super-secret"},
+		{Name: "Authorization", Value: "Bearer internal-token"},
+	}, client.ForwardAuthUpstreamHeaders)
+}
+
+func TestUpdateOIDCClientModelFromDtoRejectsReservedForwardAuthHeaders(t *testing.T) {
+	client := model.OidcClient{}
+
+	err := updateOIDCClientModelFromDto(&client, &dto.OidcClientUpdateDto{
+		Name:                   "Protected App",
+		ForwardAuthEnabled:     true,
+		ForwardAuthExternalURL: stringPtr("https://app.example.com/protected/"),
+		ForwardAuthUpstreamHeaders: []dto.HTTPHeaderDto{
+			{Name: "X-Forwarded-Host", Value: "spoofed.example.com"},
+		},
+	})
+	require.ErrorContains(t, err, `forward auth upstream header "X-Forwarded-Host" is reserved`)
 }
 
 func stringPtr(value string) *string {

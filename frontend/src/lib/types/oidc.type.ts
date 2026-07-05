@@ -21,6 +21,11 @@ export type OidcClientCredentials = {
 	federatedIdentities: OidcClientFederatedIdentity[];
 };
 
+export type HTTPHeader = {
+	name: string;
+	value: string;
+};
+
 export type OidcClient = OidcClientMetaData & {
 	callbackURLs: string[];
 	logoutCallbackURLs: string[];
@@ -36,6 +41,7 @@ export type OidcClient = OidcClientMetaData & {
 	forwardAuthEnabled: boolean;
 	forwardAuthExternalURL?: string;
 	forwardAuthUpstreamURL?: string;
+	forwardAuthUpstreamHeaders: HTTPHeader[];
 };
 
 export type OidcClientWithAllowedUserGroups = OidcClient & {

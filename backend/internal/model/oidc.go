@@ -40,6 +40,7 @@ type OidcClient struct {
 	ForwardAuthEnabled                  bool `sortable:"true" filterable:"true"`
 	ForwardAuthExternalURL              *string
 	ForwardAuthUpstreamURL              *string
+	ForwardAuthUpstreamHeaders          HTTPHeaderList
 
 	AllowedUserGroups         []UserGroup `gorm:"many2many:oidc_clients_allowed_user_groups;"`
 	CreatedByID               *string
@@ -97,4 +98,19 @@ func (cu *UrlList) Scan(value any) error {
 
 func (cu UrlList) Value() (driver.Value, error) {
 	return json.Marshal(cu)
+}
+
+type HTTPHeader struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type HTTPHeaderList []HTTPHeader //nolint:recvcheck
+
+func (h *HTTPHeaderList) Scan(value any) error {
+	return utils.UnmarshalJSONFromDatabase(h, value)
+}
+
+func (h HTTPHeaderList) Value() (driver.Value, error) {
+	return json.Marshal(h)
 }

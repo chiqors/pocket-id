@@ -25,6 +25,7 @@ type OidcClientDto struct {
 	ForwardAuthEnabled                  bool                     `json:"forwardAuthEnabled"`
 	ForwardAuthExternalURL              *string                  `json:"forwardAuthExternalURL"`
 	ForwardAuthUpstreamURL              *string                  `json:"forwardAuthUpstreamURL"`
+	ForwardAuthUpstreamHeaders          []HTTPHeaderDto          `json:"forwardAuthUpstreamHeaders"`
 }
 
 type OidcClientWithAllowedUserGroupsDto struct {
@@ -56,6 +57,7 @@ type OidcClientUpdateDto struct {
 	ForwardAuthEnabled                  bool                     `json:"forwardAuthEnabled"`
 	ForwardAuthExternalURL              *string                  `json:"forwardAuthExternalURL" binding:"omitempty,url"`
 	ForwardAuthUpstreamURL              *string                  `json:"forwardAuthUpstreamURL" binding:"omitempty,url"`
+	ForwardAuthUpstreamHeaders          []HTTPHeaderDto          `json:"forwardAuthUpstreamHeaders"`
 }
 
 type OidcClientCreateDto struct {
@@ -73,6 +75,11 @@ type OidcClientFederatedIdentityDto struct {
 	Audience         string `json:"audience,omitempty"`
 	JWKS             string `json:"jwks,omitempty"`
 	ReplayProtection bool   `json:"replayProtection"`
+}
+
+type HTTPHeaderDto struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type OidcUpdateAllowedUserGroupsDto struct {

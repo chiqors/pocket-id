@@ -320,6 +320,12 @@
 					Pocket ID will inject these identity headers to the upstream:
 					{forwardAuthHeaderNames.join(', ')}
 				</p>
+				<p>
+					Custom upstream headers:
+					{client.forwardAuthUpstreamHeaders.length > 0
+						? client.forwardAuthUpstreamHeaders.map((header) => header.name).join(', ')
+						: 'None configured'}
+				</p>
 			</div>
 		</Card.Content>
 	</Card.Root>

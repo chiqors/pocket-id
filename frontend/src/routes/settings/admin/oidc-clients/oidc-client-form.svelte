@@ -2,9 +2,11 @@
 	import FormInput from '$lib/components/form/form-input.svelte';
 	import SwitchWithLabel from '$lib/components/form/switch-with-label.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { m } from '$lib/paraglide/messages';
 	import type {
+		HTTPHeader,
 		OidcClient,
 		OidcClientCreateWithLogo,
 		OidcClientUpdateWithLogo
@@ -56,6 +58,7 @@
 		forwardAuthEnabled: existingClient?.forwardAuthEnabled || false,
 		forwardAuthExternalURL: existingClient?.forwardAuthExternalURL || '',
 		forwardAuthUpstreamURL: existingClient?.forwardAuthUpstreamURL || '',
+		forwardAuthUpstreamHeaders: existingClient?.forwardAuthUpstreamHeaders || [],
 		credentials: {
 			federatedIdentities: existingClient?.credentials?.federatedIdentities || []
 		},
@@ -88,6 +91,12 @@
 			forwardAuthEnabled: z.boolean(),
 			forwardAuthExternalURL: optionalUrl,
 			forwardAuthUpstreamURL: optionalUrl,
+			forwardAuthUpstreamHeaders: z.array(
+				z.object({
+					name: z.string(),
+					value: z.string()
+				})
+			).default([]),
 			logoUrl: optionalUrl,
 			darkLogoUrl: optionalUrl,
 			credentials: z.object({
@@ -194,6 +203,26 @@
 				return e;
 			});
 	}
+
+	function addUpstreamHeader() {
+		$inputs.forwardAuthUpstreamHeaders.value = [
+			...$inputs.forwardAuthUpstreamHeaders.value,
+			{ name: '', value: '' }
+		];
+	}
+
+	function updateUpstreamHeader(index: number, field: keyof HTTPHeader, value: string) {
+		$inputs.forwardAuthUpstreamHeaders.value = $inputs.forwardAuthUpstreamHeaders.value.map(
+			(header, currentIndex) =>
+				currentIndex === index ? { ...header, [field]: value } : header
+		);
+	}
+
+	function removeUpstreamHeader(index: number) {
+		$inputs.forwardAuthUpstreamHeaders.value = $inputs.forwardAuthUpstreamHeaders.value.filter(
+			(_, currentIndex) => currentIndex !== index
+		);
+	}
 </script>
 
 <form onsubmit={preventDefault(onSubmit)}>
@@ -250,6 +279,66 @@
 							type="url"
 							bind:input={$inputs.forwardAuthUpstreamURL}
 						/>
+						<div class="grid gap-3 rounded-lg border border-border/60 p-4">
+							<div class="flex items-center justify-between gap-3">
+								<div>
+									<p class="text-sm font-medium">Forward Auth Upstream Headers</p>
+									<p class="text-muted-foreground text-sm">
+										Static headers Pocket ID will inject to the upstream request, such as `X-API-Key` or `Authorization: Bearer ...`.
+									</p>
+								</div>
+								<Button type="button" size="sm" variant="secondary" onclick={addUpstreamHeader}>
+									Add Header
+								</Button>
+							</div>
+							{#if $inputs.forwardAuthUpstreamHeaders.value.length > 0}
+								<div class="grid gap-3">
+									{#each $inputs.forwardAuthUpstreamHeaders.value as header, index}
+										<div class="grid gap-3 md:grid-cols-[1fr_1.5fr_auto] md:items-end">
+											<div class="grid gap-2">
+												<label class="text-sm font-medium" for={`header-name-${index}`}>
+													Header Name
+												</label>
+												<Input
+													id={`header-name-${index}`}
+													value={header.name}
+													oninput={(event) =>
+														updateUpstreamHeader(
+															index,
+															'name',
+															(event.currentTarget as HTMLInputElement).value
+														)}
+												/>
+											</div>
+											<div class="grid gap-2">
+												<label class="text-sm font-medium" for={`header-value-${index}`}>
+													Header Value
+												</label>
+												<Input
+													id={`header-value-${index}`}
+													value={header.value}
+													oninput={(event) =>
+														updateUpstreamHeader(
+															index,
+															'value',
+															(event.currentTarget as HTMLInputElement).value
+														)}
+												/>
+											</div>
+											<Button
+												type="button"
+												size="sm"
+												variant="ghost"
+												class="md:mb-1"
+												onclick={() => removeUpstreamHeader(index)}
+											>
+												Remove
+											</Button>
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
 					</div>
 				{/if}
 			</div>

@@ -7,8 +7,10 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -248,6 +250,11 @@ func updateOIDCClientModelFromDto(client *model.OidcClient, input *dto.OidcClien
 		return &common.ValidationError{Message: err.Error()}
 	}
 	client.ForwardAuthUpstreamURL = forwardAuthUpstreamURL
+	forwardAuthUpstreamHeaders, err := normalizeForwardAuthUpstreamHeaders(input.ForwardAuthUpstreamHeaders)
+	if err != nil {
+		return &common.ValidationError{Message: err.Error()}
+	}
+	client.ForwardAuthUpstreamHeaders = forwardAuthUpstreamHeaders
 
 	// Credentials
 	client.Credentials.FederatedIdentities = make([]model.OidcClientFederatedIdentity, len(input.Credentials.FederatedIdentities))
@@ -270,6 +277,63 @@ func normalizeForwardAuthExternalURL(raw *string) (*string, error) {
 
 func normalizeForwardAuthUpstreamURL(raw *string) (*string, error) {
 	return normalizeAbsoluteHTTPURL(raw, "forward auth upstream URL")
+}
+
+var validHTTPHeaderNameRegex = regexp.MustCompile(`^[!#$%&'*+.^_` + "`" + `|~0-9A-Za-z-]+$`)
+
+var reservedForwardAuthHeaderNames = map[string]struct{}{
+	"Connection":          {},
+	"Content-Length":      {},
+	"Host":                {},
+	"Keep-Alive":          {},
+	"Proxy-Authenticate":  {},
+	"Proxy-Authorization": {},
+	"Proxy-Connection":    {},
+	"Te":                  {},
+	"Trailer":             {},
+	"Transfer-Encoding":   {},
+	"Upgrade":             {},
+}
+
+func normalizeForwardAuthUpstreamHeaders(input []dto.HTTPHeaderDto) (model.HTTPHeaderList, error) {
+	headers := make(model.HTTPHeaderList, 0, len(input))
+	seen := make(map[string]struct{}, len(input))
+
+	for _, item := range input {
+		name := textproto.CanonicalMIMEHeaderKey(strings.TrimSpace(item.Name))
+		value := strings.TrimSpace(item.Value)
+
+		if name == "" && value == "" {
+			continue
+		}
+		if name == "" {
+			return nil, fmt.Errorf("forward auth upstream header name is required")
+		}
+		if value == "" {
+			return nil, fmt.Errorf("forward auth upstream header value is required")
+		}
+		if !validHTTPHeaderNameRegex.MatchString(name) {
+			return nil, fmt.Errorf("forward auth upstream header %q is invalid", item.Name)
+		}
+		if _, blocked := reservedForwardAuthHeaderNames[name]; blocked {
+			return nil, fmt.Errorf("forward auth upstream header %q is reserved", name)
+		}
+		lowerName := strings.ToLower(name)
+		if strings.HasPrefix(lowerName, "x-forwarded-") || strings.HasPrefix(lowerName, "x-pocket-id-") {
+			return nil, fmt.Errorf("forward auth upstream header %q is reserved", name)
+		}
+		if _, exists := seen[lowerName]; exists {
+			return nil, fmt.Errorf("forward auth upstream header %q is duplicated", name)
+		}
+
+		seen[lowerName] = struct{}{}
+		headers = append(headers, model.HTTPHeader{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return headers, nil
 }
 
 func normalizeAbsoluteHTTPURL(raw *string, fieldName string) (*string, error) {
