@@ -6,13 +6,22 @@
 	import WebAuthnService from '$lib/services/webauthn-service';
 	import appConfigStore from '$lib/stores/application-configuration-store';
 	import userStore from '$lib/stores/user-store';
+	import type { OidcClientMetaData } from '$lib/types/oidc.type';
 	import { getWebauthnErrorMessage } from '$lib/utils/error-util';
 	import { shouldUseBrowserNavigationForRedirect } from '$lib/utils/redirection-util';
 	import { startAuthentication } from '@simplewebauthn/browser';
 	import { fade } from 'svelte/transition';
+	import ClientProviderImages from '../authorize/components/client-provider-images.svelte';
 	import LoginLogoErrorSuccessIndicator from './components/login-logo-error-success-indicator.svelte';
 
-	let { data } = $props();
+	let {
+		data
+	}: {
+		data: {
+			redirect: string;
+			client: OidcClientMetaData | null;
+		};
+	} = $props();
 
 	const webauthnService = new WebAuthnService();
 
@@ -41,19 +50,34 @@
 </script>
 
 <svelte:head>
-	<title>{m.sign_in()}</title>
+	<title>{data.client ? m.sign_in_to({ name: data.client.name }) : m.sign_in()}</title>
 </svelte:head>
 
 <SignInWrapper showAlternativeSignInMethodButton>
 	<div class="flex justify-center">
-		<LoginLogoErrorSuccessIndicator error={!!error} />
+		{#if data.client}
+			<ClientProviderImages client={data.client} error={!!error} />
+		{:else}
+			<LoginLogoErrorSuccessIndicator error={!!error} />
+		{/if}
 	</div>
 	<h1 class="font-gloock mt-5 text-3xl font-bold sm:text-4xl">
-		{m.sign_in_to_appname({ appName: $appConfigStore.appName })}
+		{#if data.client}
+			{m.sign_in_to({ name: data.client.name })}
+		{:else}
+			{m.sign_in_to_appname({ appName: $appConfigStore.appName })}
+		{/if}
 	</h1>
 	{#if error}
 		<p class="text-muted-foreground mt-2" in:fade>
 			{error}. {m.please_try_to_sign_in_again()}
+		</p>
+	{:else if data.client}
+		<p class="text-muted-foreground mt-2" in:fade>
+			{m.do_you_want_to_sign_in_to_client_with_your_app_name_account({
+				client: data.client.name,
+				appName: $appConfigStore.appName
+			})}
 		</p>
 	{:else}
 		<p class="text-muted-foreground mt-2" in:fade>
@@ -61,18 +85,20 @@
 		</p>
 	{/if}
 	<div class="mt-10 flex justify-center gap-3 w-full max-w-[450px]">
-		{#if $appConfigStore.allowUserSignups === 'open'}
+		{#if $appConfigStore.allowUserSignups === 'open' && !data.client}
 			<Button class="w-[50%]" variant="secondary" href="/signup">
 				{m.signup()}
 			</Button>
 		{/if}
 		<Button
-			class={$appConfigStore.allowUserSignups === 'open' ? 'w-[50%]' : 'w-[80%] sm:w-[40%]'}
+			class={$appConfigStore.allowUserSignups === 'open' && !data.client
+				? 'w-[50%]'
+				: 'w-[80%] sm:w-[40%]'}
 			{isLoading}
 			onclick={authenticate}
 			autofocus={true}
 		>
-			{error ? m.try_again() : m.authenticate()}
+			{error ? m.try_again() : data.client ? m.sign_in() : m.authenticate()}
 		</Button>
 	</div>
 </SignInWrapper>
