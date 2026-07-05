@@ -254,34 +254,35 @@
 			bind:callbackURLs={$inputs.logoutCallbackURLs.value}
 			bind:error={$inputs.logoutCallbackURLs.error}
 		/>
-		<div class="md:col-span-2">
-			<div class="grid gap-4 md:grid-cols-2 md:items-start">
+		<div class="md:col-span-2 rounded-xl border border-border/60 p-5">
+			<div class="grid gap-5">
 				<SwitchWithLabel
-					class="md:pt-1"
 					id="forward-auth-enabled"
 					label={m.forward_auth()}
 					description={m.forward_auth_description()}
 					bind:checked={$inputs.forwardAuthEnabled.value}
 				/>
 				{#if $inputs.forwardAuthEnabled.value}
-					<div class="grid gap-4" transition:slide={{ duration: 200 }}>
-						<FormInput
-							label={m.forward_auth_external_url()}
-							description={m.forward_auth_external_url_description()}
-							class="w-full"
-							type="url"
-							bind:input={$inputs.forwardAuthExternalURL}
-						/>
-						<FormInput
-							label="Forward Auth Upstream URL"
-							description="Optional reverse proxy upstream. Set this to make Pocket ID behave like a proxy provider for the protected app."
-							class="w-full"
-							type="url"
-							bind:input={$inputs.forwardAuthUpstreamURL}
-						/>
-						<div class="grid gap-3 rounded-lg border border-border/60 p-4">
-							<div class="flex items-center justify-between gap-3">
-								<div>
+					<div class="grid gap-5" transition:slide={{ duration: 200 }}>
+						<div class="grid gap-4 lg:grid-cols-2">
+							<FormInput
+								label={m.forward_auth_external_url()}
+								description={m.forward_auth_external_url_description()}
+								class="w-full"
+								type="url"
+								bind:input={$inputs.forwardAuthExternalURL}
+							/>
+							<FormInput
+								label="Forward Auth Upstream URL"
+								description="Optional reverse proxy upstream. Set this to make Pocket ID behave like a proxy provider for the protected app."
+								class="w-full"
+								type="url"
+								bind:input={$inputs.forwardAuthUpstreamURL}
+							/>
+						</div>
+						<div class="grid gap-4 rounded-lg border border-border/60 p-4">
+							<div class="flex flex-wrap items-start justify-between gap-3">
+								<div class="max-w-2xl">
 									<p class="text-sm font-medium">Forward Auth Upstream Headers</p>
 									<p class="text-muted-foreground text-sm">
 										Static headers Pocket ID will inject to the upstream request, such as `X-API-Key` or `Authorization: Bearer ...`.
@@ -294,7 +295,7 @@
 							{#if $inputs.forwardAuthUpstreamHeaders.value.length > 0}
 								<div class="grid gap-3">
 									{#each $inputs.forwardAuthUpstreamHeaders.value as header, index}
-										<div class="grid gap-3 md:grid-cols-[1fr_1.5fr_auto] md:items-end">
+										<div class="grid gap-3 rounded-lg border border-border/40 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_auto] lg:items-end">
 											<div class="grid gap-2">
 												<label class="text-sm font-medium" for={`header-name-${index}`}>
 													Header Name
@@ -329,7 +330,7 @@
 												type="button"
 												size="sm"
 												variant="ghost"
-												class="md:mb-1"
+												class="justify-self-start lg:justify-self-end"
 												onclick={() => removeUpstreamHeader(index)}
 											>
 												Remove
@@ -337,6 +338,10 @@
 										</div>
 									{/each}
 								</div>
+							{:else}
+								<p class="text-muted-foreground text-sm">
+									No custom upstream headers configured yet.
+								</p>
 							{/if}
 						</div>
 					</div>
