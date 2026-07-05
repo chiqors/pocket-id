@@ -34,6 +34,21 @@
 	let error: string | undefined = $state(undefined);
 	const requiresForwardAuthConsent = $derived(!!data.client && !data.client.skipConsent);
 	const showForwardAuthConsent = $derived(requiresForwardAuthConsent && !!$userStore && !error);
+	const primaryButtonLabel = $derived.by(() => {
+		if (error) {
+			return m.try_again();
+		}
+
+		if (showForwardAuthConsent && data.client) {
+			return `Continue to ${data.client.name}`;
+		}
+
+		if (data.client) {
+			return m.sign_in();
+		}
+
+		return m.authenticate();
+	});
 	const fullName = $derived.by(() => {
 		if (!$userStore) {
 			return '';
@@ -193,7 +208,7 @@
 			onclick={handlePrimaryAction}
 			autofocus={true}
 		>
-			{error ? m.try_again() : data.client ? m.sign_in() : m.authenticate()}
+			{primaryButtonLabel}
 		</Button>
 	</div>
 </SignInWrapper>
