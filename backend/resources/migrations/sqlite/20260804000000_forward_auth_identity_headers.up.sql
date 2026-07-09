@@ -1,8 +1,0 @@
-PRAGMA foreign_keys=OFF;
-BEGIN;
-
-ALTER TABLE oidc_clients
-    ADD COLUMN forward_auth_inject_identity_headers BOOLEAN NOT NULL DEFAULT 1;
-
-COMMIT;
-PRAGMA foreign_keys=ON;

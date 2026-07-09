@@ -7,6 +7,15 @@ ALTER TABLE oidc_clients
 ALTER TABLE oidc_clients
     ADD COLUMN forward_auth_external_url TEXT;
 
+ALTER TABLE oidc_clients
+    ADD COLUMN forward_auth_upstream_url TEXT;
+
+ALTER TABLE oidc_clients
+    ADD COLUMN forward_auth_upstream_headers TEXT NOT NULL DEFAULT '[]';
+
+ALTER TABLE oidc_clients
+    ADD COLUMN forward_auth_inject_identity_headers BOOLEAN NOT NULL DEFAULT 1;
+
 CREATE TABLE forward_auth_sessions
 (
     id         TEXT PRIMARY KEY NOT NULL,
