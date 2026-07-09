@@ -46,6 +46,7 @@
 	const client = {
 		id: '',
 		name: existingClient?.name || '',
+		description: existingClient?.description || '',
 		callbackURLs: existingClient?.callbackURLs || [],
 		logoutCallbackURLs: existingClient?.logoutCallbackURLs || [],
 		isPublic: existingClient?.isPublic || false,
@@ -58,8 +59,7 @@
 		forwardAuthEnabled: existingClient?.forwardAuthEnabled || false,
 		forwardAuthExternalURL: existingClient?.forwardAuthExternalURL || '',
 		forwardAuthUpstreamURL: existingClient?.forwardAuthUpstreamURL || '',
-		forwardAuthInjectIdentityHeaders:
-			existingClient?.forwardAuthInjectIdentityHeaders ?? true,
+		forwardAuthInjectIdentityHeaders: existingClient?.forwardAuthInjectIdentityHeaders ?? true,
 		forwardAuthUpstreamHeaders: existingClient?.forwardAuthUpstreamHeaders || [],
 		credentials: {
 			federatedIdentities: existingClient?.credentials?.federatedIdentities || []
@@ -82,6 +82,7 @@
 					.optional()
 			),
 			name: z.string().min(2).max(50),
+			description: z.string().max(150),
 			callbackURLs: z.array(callbackUrlSchema).default([]),
 			logoutCallbackURLs: z.array(callbackUrlSchema).default([]),
 			isPublic: z.boolean(),
@@ -94,12 +95,14 @@
 			forwardAuthExternalURL: optionalUrl,
 			forwardAuthUpstreamURL: optionalUrl,
 			forwardAuthInjectIdentityHeaders: z.boolean(),
-			forwardAuthUpstreamHeaders: z.array(
-				z.object({
-					name: z.string(),
-					value: z.string()
-				})
-			).default([]),
+			forwardAuthUpstreamHeaders: z
+				.array(
+					z.object({
+						name: z.string(),
+						value: z.string()
+					})
+				)
+				.default([]),
 			logoUrl: optionalUrl,
 			darkLogoUrl: optionalUrl,
 			credentials: z.object({
@@ -216,8 +219,7 @@
 
 	function updateUpstreamHeader(index: number, field: keyof HTTPHeader, value: string) {
 		$inputs.forwardAuthUpstreamHeaders.value = $inputs.forwardAuthUpstreamHeaders.value.map(
-			(header, currentIndex) =>
-				currentIndex === index ? { ...header, [field]: value } : header
+			(header, currentIndex) => (currentIndex === index ? { ...header, [field]: value } : header)
 		);
 	}
 
@@ -235,6 +237,12 @@
 			class="w-full"
 			description={m.client_name_description()}
 			bind:input={$inputs.name}
+		/>
+		<FormInput
+			label={m.client_description()}
+			class="w-full"
+			description={m.client_description_description()}
+			bind:input={$inputs.description}
 		/>
 		<FormInput
 			label={m.client_launch_url()}
@@ -290,14 +298,17 @@
 							bind:checked={$inputs.forwardAuthInjectIdentityHeaders.value}
 						/>
 						<p class="text-muted-foreground text-sm">
-							The existing "Skip Consent Screen" toggle also controls the forward-auth confirmation step. Disable "Skip Consent Screen" if you want users to confirm before Pocket ID continues to the protected app.
+							The existing "Skip Consent Screen" toggle also controls the forward-auth confirmation
+							step. Disable "Skip Consent Screen" if you want users to confirm before Pocket ID
+							continues to the protected app.
 						</p>
 						<div class="grid gap-4 rounded-lg border border-border/60 p-4">
 							<div class="flex flex-wrap items-start justify-between gap-3">
 								<div class="max-w-2xl">
 									<p class="text-sm font-medium">Forward Auth Upstream Headers</p>
 									<p class="text-muted-foreground text-sm">
-										Static headers Pocket ID will inject to the upstream request, such as `X-API-Key` or `Authorization: Bearer ...`.
+										Static headers Pocket ID will inject to the upstream request, such as
+										`X-API-Key` or `Authorization: Bearer ...`.
 									</p>
 								</div>
 								<Button type="button" size="sm" variant="secondary" onclick={addUpstreamHeader}>
@@ -307,7 +318,9 @@
 							{#if $inputs.forwardAuthUpstreamHeaders.value.length > 0}
 								<div class="grid gap-3">
 									{#each $inputs.forwardAuthUpstreamHeaders.value as header, index}
-										<div class="grid gap-3 rounded-lg border border-border/40 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_auto] lg:items-end">
+										<div
+											class="grid gap-3 rounded-lg border border-border/40 p-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_auto] lg:items-end"
+										>
 											<div class="grid gap-2">
 												<label class="text-sm font-medium" for={`header-name-${index}`}>
 													Header Name

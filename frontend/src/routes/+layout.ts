@@ -8,6 +8,7 @@ import {
 	getAuthRedirectPath,
 	shouldUseBrowserNavigationForRedirect
 } from '$lib/utils/redirection-util';
+import { setTracingEnabled } from '$lib/utils/tracing-util';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
@@ -45,6 +46,10 @@ export const load: LayoutLoad = async ({ url }) => {
 	if (appConfig) {
 		appConfigStore.set(appConfig);
 	}
+
+	// Only export traces when the backend is configured to forward them; otherwise the SPA would POST spans to an unregistered endpoint.
+	// When enabled this dynamically imports the OpenTelemetry libraries, so awaiting it ensures the tracer provider is ready before any traced navigation or request.
+	await setTracingEnabled(appConfig?.tracingEnabled ?? false);
 
 	await setLocaleForLibraries();
 
